@@ -391,12 +391,35 @@ export default function OrderDetails() {
     window.open(`tel:${phone}`)
   }, [order])
 
-  const finalizePlaceholder = useCallback(() => {
-    setInfoMessage({
-      type: 'info',
-      text: 'This workflow requires identity verification and is available in the mobile app.',
+  const navigateToBypass = useCallback(() => {
+    if (!order) {
+      return
+    }
+
+    navigate(`/orders/${resolvedStatusKey}/${order._id}/bypass`, {
+      state: { order },
     })
-  }, [])
+  }, [navigate, order, resolvedStatusKey])
+
+  const navigateToCamera = useCallback(() => {
+    if (!order) {
+      return
+    }
+
+    navigate(`/orders/${resolvedStatusKey}/${order._id}/camera`, {
+      state: { order },
+    })
+  }, [navigate, order, resolvedStatusKey])
+
+  const navigateToCancel = useCallback(() => {
+    if (!order) {
+      return
+    }
+
+    navigate(`/orders/${resolvedStatusKey}/${order._id}/cancel`, {
+      state: { order, reason: 'No answer at door' },
+    })
+  }, [navigate, order, resolvedStatusKey])
 
   if (loading && !order) {
     return (
@@ -607,13 +630,13 @@ export default function OrderDetails() {
         <section className="order-section-card">
           <h2 className="section-heading">Finalize</h2>
           <div className="action-grid">
-            <button type="button" className="action-button" onClick={finalizePlaceholder}>
+            <button type="button" className="action-button" onClick={navigateToBypass}>
               Bypass
             </button>
-            <button type="button" className="action-button" onClick={finalizePlaceholder}>
+            <button type="button" className="action-button" onClick={navigateToCamera}>
               Verify Info
             </button>
-            <button type="button" className="action-button" onClick={finalizePlaceholder}>
+            <button type="button" className="action-button" onClick={navigateToCancel}>
               No Answer
             </button>
             <button type="button" className="action-button destructive" onClick={handleCancelOrder}>

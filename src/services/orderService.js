@@ -145,3 +145,104 @@ export async function sendArrivalMessage(payload, token) {
     throw parseError(error, 'Unable to send arrival message.')
   }
 }
+
+function resolveUploadConfig() {
+  const cloudName =
+    import.meta.env?.VITE_CLOUDINARY_CLOUD_NAME || import.meta.env?.VITE_UPLOAD_CLOUD || 'jasons'
+  const uploadPreset =
+    import.meta.env?.VITE_CLOUDINARY_PRESET || import.meta.env?.VITE_UPLOAD_PRESET || 'x7c8n8fe'
+
+  return { cloudName, uploadPreset }
+}
+
+function extractUploadUrl(result) {
+  if (!result) {
+    return null
+  }
+
+  return result.secure_url || result.url || result.data?.secure_url || result.data?.url || null
+}
+
+export async function uploadImage(fileOrDataUrl) {
+  const { cloudName, uploadPreset } = resolveUploadConfig()
+
+  if (!cloudName || !uploadPreset) {
+    throw new Error('Image uploading is not configured.')
+  }
+
+  const endpoint = `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`
+  const body = new FormData()
+
+  if (fileOrDataUrl instanceof File || fileOrDataUrl instanceof Blob) {
+    body.append('file', fileOrDataUrl)
+  } else if (typeof fileOrDataUrl === 'string') {
+    body.append('file', fileOrDataUrl)
+  } else {
+    throw new Error('No file selected for upload.')
+  }
+
+  body.append('upload_preset', uploadPreset)
+  body.append('tags', 'delivery')
+
+  try {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      body,
+    })
+
+    if (!response.ok) {
+      const errorPayload = await response.json().catch(() => null)
+      const message =
+        errorPayload?.error?.message || errorPayload?.message || 'Unable to upload image.'
+      throw new Error(message)
+    }
+
+    const result = await response.json()
+    const url = extractUploadUrl(result)
+
+    if (!url) {
+      throw new Error('Upload succeeded but no image URL was returned.')
+    }
+
+    return url
+  } catch (error) {
+    if (error instanceof Error) {
+      throw error
+    }
+
+    throw new Error('Unable to upload image.')
+  }
+}
+
+export async function updateDriverProfile(driverId, updates, token) {
+  if (!driverId) {
+    throw new Error('Driver id is required to update profile.')
+  }
+
+  try {
+    const response = await client.put(`/drivers/update`, updates, {
+      headers: authHeaders(token),
+      params: { id: driverId },
+    })
+
+    return response.data
+  } catch (error) {
+    throw parseError(error, 'Unable to update driver profile.')
+  }
+}
+
+export async function fetchDriverRating(driverId, token) {
+  if (!driverId) {
+    throw new Error('Driver id is required to fetch rating.')
+  }
+
+  try {
+    const response = await client.get(`/drivers/totalrating/${driverId}`, {
+      headers: authHeaders(token),
+    })
+
+    return response.data?.rating ?? response.data
+  } catch (error) {
+    throw parseError(error, 'Unable to fetch driver rating.')
+  }
+}

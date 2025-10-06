@@ -15,6 +15,10 @@ import LoginPage from './pages/Login.jsx'
 import SettingsPage from './pages/Settings.jsx'
 import OrdersFeed from './pages/orders/OrdersFeed.jsx'
 import OrderDetails from './pages/orders/OrderDetails.jsx'
+import OrderCamera from './pages/orders/OrderCamera.jsx'
+import OrderSignature from './pages/orders/OrderSignature.jsx'
+import OrderBypass from './pages/orders/OrderBypass.jsx'
+import OrderCancel from './pages/orders/OrderCancel.jsx'
 import './App.css'
 
 function AppLayout() {
@@ -84,6 +88,10 @@ export default function App() {
             <Route index element={<Navigate to="/orders" replace />} />
             <Route path="/orders" element={<OrdersFeed />} />
             <Route path="/orders/:status/:orderId" element={<OrderDetails />} />
+            <Route path="/orders/:status/:orderId/camera" element={<OrderCamera />} />
+            <Route path="/orders/:status/:orderId/signature" element={<OrderSignature />} />
+            <Route path="/orders/:status/:orderId/bypass" element={<OrderBypass />} />
+            <Route path="/orders/:status/:orderId/cancel" element={<OrderCancel />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Route>
         </Route>
