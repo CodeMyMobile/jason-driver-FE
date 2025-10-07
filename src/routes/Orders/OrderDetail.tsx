@@ -7,30 +7,52 @@ import { SignaturePad } from '../../components/SignaturePad'
 
 interface OrderDetailProps {
   order: Order
-  onArrive: (orderId: string) => Promise<void>
-  onComplete: (orderId: string, signature: string) => Promise<void>
+  onStart?: (orderId: string) => Promise<void>
+  onArrive?: (orderId: string) => Promise<void>
+  onComplete?: (orderId: string, signature: string) => Promise<void>
 }
 
-export function OrderDetail({ order, onArrive, onComplete }: OrderDetailProps): JSX.Element {
+export function OrderDetail({ order, onStart, onArrive, onComplete }: OrderDetailProps): JSX.Element {
   const [idChecked, setIdChecked] = useState(false)
   const [paymentChecked, setPaymentChecked] = useState(false)
   const [signature, setSignature] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
+  const idPrefilled = !order.requiresIdCheck
+  const paymentPrefilled = !order.requiresPaymentCheck
+
   useEffect(() => {
-    setIdChecked(false)
-    setPaymentChecked(false)
+    setIdChecked(idPrefilled)
+    setPaymentChecked(paymentPrefilled)
     setSignature(null)
     setSubmitting(false)
-  }, [order.id, order.status])
+  }, [idPrefilled, order.id, order.status, paymentPrefilled])
 
-  const canComplete = idChecked && paymentChecked && Boolean(signature)
-  const showVerification = order.status === 'ARRIVED'
-  const showArriveButton = order.status === 'IN_PROGRESS'
+  const hasStarted = Boolean(order.startedAt) || order.status === 'IN_PROGRESS' || order.status === 'ARRIVED' || order.status === 'COMPLETED'
+  const hasArrived = Boolean(order.arrivedAt) || order.status === 'ARRIVED' || order.status === 'COMPLETED'
+  const isCompleted = Boolean(order.completedAt) || order.status === 'COMPLETED'
+  const awaitingStart = Boolean(onStart) && !hasStarted && !isCompleted
+  const awaitingArrival = Boolean(onArrive) && hasStarted && !hasArrived && !isCompleted
+  const showVerification = (hasArrived || isCompleted) && Boolean(onComplete)
 
   const mapsQuery = useMemo(() => encodeURIComponent(order.customer.address), [order.customer.address])
 
+  const idFulfilled = idChecked || !order.requiresIdCheck
+  const paymentFulfilled = paymentChecked || !order.requiresPaymentCheck
+  const canComplete = idFulfilled && paymentFulfilled && Boolean(signature) && !submitting
+
+  async function handleStart() {
+    if (!onStart) return
+    setSubmitting(true)
+    try {
+      await onStart(order.id)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   async function handleArrive() {
+    if (!onArrive) return
     setSubmitting(true)
     try {
       await onArrive(order.id)
@@ -40,7 +62,7 @@ export function OrderDetail({ order, onArrive, onComplete }: OrderDetailProps): 
   }
 
   async function handleComplete() {
-    if (!signature) return
+    if (!onComplete || !signature) return
     setSubmitting(true)
     try {
       await onComplete(order.id, signature)
@@ -98,7 +120,17 @@ export function OrderDetail({ order, onArrive, onComplete }: OrderDetailProps): 
           </ul>
         </div>
       ) : null}
-      {showArriveButton ? (
+      {awaitingStart ? (
+        <button
+          type="button"
+          className="action-btn primary"
+          onClick={handleStart}
+          disabled={submitting}
+        >
+          Start Delivery →
+        </button>
+      ) : null}
+      {awaitingArrival ? (
         <button
           type="button"
           className="action-btn primary"
@@ -110,28 +142,36 @@ export function OrderDetail({ order, onArrive, onComplete }: OrderDetailProps): 
       ) : null}
       {showVerification ? (
         <div className="verification-stack">
-          <VerifyChecklist
-            idChecked={idChecked}
-            paymentChecked={paymentChecked}
-            onChange={({ idChecked: id, paymentChecked: payment }) => {
-              setIdChecked(id)
-              setPaymentChecked(payment)
-            }}
-          />
-          <div className="verify-section">
-            <h3>Customer Signature</h3>
-            <SignaturePad value={signature} onChange={setSignature} />
-          </div>
-          <button
-            type="button"
-            className="action-btn primary"
-            onClick={handleComplete}
-            disabled={!canComplete || submitting}
-          >
-            Complete Delivery
-          </button>
+          {!isCompleted ? (
+            <>
+              <VerifyChecklist
+                idChecked={idChecked}
+                paymentChecked={paymentChecked}
+                requiresIdCheck={order.requiresIdCheck}
+                requiresPaymentCheck={order.requiresPaymentCheck}
+                onChange={({ idChecked: id, paymentChecked: payment }) => {
+                  setIdChecked(id)
+                  setPaymentChecked(payment)
+                }}
+              />
+              <div className="verify-section">
+                <h3>Customer Signature</h3>
+                <SignaturePad value={signature} onChange={setSignature} />
+              </div>
+              <button
+                type="button"
+                className="action-btn primary"
+                onClick={handleComplete}
+                disabled={!canComplete}
+              >
+                Complete Delivery
+              </button>
+            </>
+          ) : (
+            <div className="completion-banner">Delivery completed · Signature on file.</div>
+          )}
         </div>
-      ) : order.status === 'COMPLETED' ? (
+      ) : isCompleted ? (
         <div className="completion-banner">Delivery completed · Signature on file.</div>
       ) : null}
     </section>

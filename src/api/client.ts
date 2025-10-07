@@ -19,11 +19,11 @@ apiClient.interceptors.response.use(
   },
 )
 
-export async function safeRequest<T>(request: () => Promise<T>, fallback: () => Promise<T>): Promise<T> {
+export async function safeRequest<T>(request: () => Promise<T>): Promise<T> {
   try {
     return await request()
   } catch (error) {
-    console.warn('Falling back to local mock data due to request error', error)
-    return fallback()
+    console.error('API request failed', error)
+    throw error
   }
 }
