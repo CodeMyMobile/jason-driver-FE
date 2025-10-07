@@ -29,8 +29,10 @@ export default function OrdersRoute(): JSX.Element {
   }, [orders, selected])
 
   const segmented = useMemo(() => {
-    const pending = orders.filter((order) => order.status === 'NEW' || order.status === 'ASSIGNED')
-    const active = orders.filter((order) => order.status === 'IN_PROGRESS' || order.status === 'ARRIVED')
+    const pending = orders.filter((order) => order.status === 'NEW')
+    const active = orders.filter(
+      (order) => order.status === 'ASSIGNED' || order.status === 'IN_PROGRESS' || order.status === 'ARRIVED',
+    )
     const completed = orders.filter((order) => order.status === 'COMPLETED')
     return { pending, active, completed }
   }, [orders])
