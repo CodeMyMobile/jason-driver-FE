@@ -1,0 +1,17 @@
+{
+  "name": "Jason's Driver App",
+  "short_name": "Jason Driver",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f8f9fa",
+  "theme_color": "#667eea",
+  "description": "Mobile responsive driver workflow for Jason's delivery team.",
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
