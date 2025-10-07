@@ -29,6 +29,12 @@ export const mockOrders: Order[] = [
       address: '85 Dolores Street, San Francisco, CA 94110',
     },
     priority: true,
+    assignedDriverId: 'driver-1',
+    items: [
+      { id: 'item-1', name: 'Johnnie Walker Black Label', quantity: 1 },
+      { id: 'item-2', name: 'Grey Goose Vodka', quantity: 1 },
+      { id: 'item-3', name: 'Corona Extra 6-pack', quantity: 1 },
+    ],
   },
   {
     id: 'order-2',
@@ -45,6 +51,12 @@ export const mockOrders: Order[] = [
       lat: 37.7937,
       lng: -122.396,
     },
+    assignedDriverId: 'driver-1',
+    items: [
+      { id: 'item-4', name: 'Don Julio Blanco', quantity: 1 },
+      { id: 'item-5', name: 'Casamigos Reposado', quantity: 1 },
+      { id: 'item-6', name: 'Limes', quantity: 6 },
+    ],
   },
   {
     id: 'order-3',
@@ -59,6 +71,11 @@ export const mockOrders: Order[] = [
       phone: '(555) 678-9012',
       address: '678 Mission Street, San Francisco, CA 94105',
     },
+    assignedDriverId: 'driver-1',
+    items: [
+      { id: 'item-7', name: 'Veuve Clicquot Brut', quantity: 2 },
+      { id: 'item-8', name: 'San Pellegrino', quantity: 4 },
+    ],
   },
 ]
 

@@ -24,6 +24,12 @@ export type OrderStatus =
   | 'COMPLETED'
   | 'CANCELLED'
 
+export interface OrderItem {
+  id: string
+  name: string
+  quantity: number
+}
+
 export interface Order {
   id: string
   number: string
@@ -34,6 +40,8 @@ export interface Order {
   createdAt: string
   customer: Customer
   priority?: boolean
+  items: OrderItem[]
+  assignedDriverId?: string
 }
 
 export type MessageSender = 'CUSTOMER' | 'STAFF' | 'DRIVER'

@@ -13,14 +13,16 @@ interface OrderCardProps {
 export function OrderCard({ order, onAccept, onSelect, isSelected }: OrderCardProps): JSX.Element {
   const isPending = order.status === 'NEW'
   const statusLabel = order.status === 'COMPLETED' ? 'Completed' : undefined
+  const isSelectable = Boolean(onSelect)
 
   return (
     <article
-      className={classNames('order-card', order.priority && 'priority', isSelected && 'selected')}
+      className={classNames('order-card', order.priority && 'priority', isSelected && 'selected', !isSelectable && 'static')}
       onClick={() => onSelect?.(order)}
-      role="button"
-      tabIndex={0}
+      role={isSelectable ? 'button' : undefined}
+      tabIndex={isSelectable ? 0 : undefined}
       onKeyDown={(event) => {
+        if (!isSelectable) return
         if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault()
           onSelect?.(order)
@@ -42,6 +44,16 @@ export function OrderCard({ order, onAccept, onSelect, isSelected }: OrderCardPr
         <span>Order Total</span>
         <span>{formatCurrency(order.total)}</span>
       </div>
+      {order.items.length > 0 ? (
+        <ul className="order-items">
+          {order.items.map((item) => (
+            <li key={item.id} className="order-item">
+              <span className="item-quantity">{item.quantity}x</span>
+              <span className="item-name">{item.name}</span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
       {isPending && onAccept ? (
         <button
           type="button"
