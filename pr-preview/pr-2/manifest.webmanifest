@@ -1,0 +1,1 @@
+{"name":"Jason's Driver App","short_name":"Jason Driver","description":"Mobile responsive portal for Jason’s delivery drivers.","start_url":"/","display":"standalone","background_color":"#f8f9fa","theme_color":"#667eea","lang":"en","scope":"/","icons":[{"src":"/icons/icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]}

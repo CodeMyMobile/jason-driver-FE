@@ -1,0 +1,1 @@
+if('serviceWorker' in navigator) {window.addEventListener('load', () => {navigator.serviceWorker.register('/jason-driver-FE/pr-preview/pr-2/sw.js', { scope: '/jason-driver-FE/pr-preview/pr-2/' })})}
