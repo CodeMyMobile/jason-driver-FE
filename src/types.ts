@@ -38,6 +38,10 @@ export interface Order {
   requiresIdCheck: boolean
   requiresPaymentCheck: boolean
   createdAt: string
+  acceptedAt?: string | null
+  startedAt?: string | null
+  arrivedAt?: string | null
+  completedAt?: string | null
   customer: Customer
   priority?: boolean
   items: OrderItem[]

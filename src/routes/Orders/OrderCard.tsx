@@ -11,8 +11,7 @@ interface OrderCardProps {
 }
 
 export function OrderCard({ order, onAccept, onSelect, isSelected }: OrderCardProps): JSX.Element {
-  const isPending = order.status === 'NEW'
-  const statusLabel = order.status === 'COMPLETED' ? 'Completed' : undefined
+  const showAccept = Boolean(onAccept)
   const isSelectable = Boolean(onSelect)
 
   return (
@@ -54,7 +53,7 @@ export function OrderCard({ order, onAccept, onSelect, isSelected }: OrderCardPr
           ))}
         </ul>
       ) : null}
-      {isPending && onAccept ? (
+      {showAccept ? (
         <button
           type="button"
           className="action-btn accept-btn"
@@ -66,7 +65,6 @@ export function OrderCard({ order, onAccept, onSelect, isSelected }: OrderCardPr
           Accept Order →
         </button>
       ) : null}
-      {statusLabel ? <span className="order-status-tag">{statusLabel}</span> : null}
     </article>
   )
 }
