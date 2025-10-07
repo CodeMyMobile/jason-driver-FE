@@ -35,8 +35,11 @@ export default function OrdersRoute(): JSX.Element {
     return { pending, active, completed }
   }, [orders])
 
-  const listForTab =
-    activeTab === 'pending' ? segmented.pending : activeTab === 'active' ? segmented.active : segmented.completed
+  const listForTab = useMemo(() => {
+    if (activeTab === 'pending') return segmented.pending
+    if (activeTab === 'active') return segmented.active
+    return segmented.completed
+  }, [activeTab, segmented])
 
   const handleAccept = async (order: Order) => {
     await accept(order.id)
@@ -53,7 +56,19 @@ export default function OrdersRoute(): JSX.Element {
     push({ title: 'Signature captured', description: 'Delivery is complete.', variant: 'success' })
   }
 
-  const selectedOrder = selected ?? segmented.active[0] ?? segmented.pending[0] ?? segmented.completed[0]
+  useEffect(() => {
+    if (!selected) {
+      setSelected(listForTab[0])
+      return
+    }
+
+    const existsInTab = listForTab.some((order) => order.id === selected.id)
+    if (!existsInTab) {
+      setSelected(listForTab[0])
+    }
+  }, [activeTab, listForTab, selected])
+
+  const selectedOrder = selected ?? listForTab[0]
 
   return (
     <div className="orders-page">
