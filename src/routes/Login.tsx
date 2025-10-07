@@ -1,0 +1,82 @@
+import { FormEvent, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../hooks/useAuth'
+import { useToast } from '../hooks/useToast'
+
+export default function LoginRoute(): JSX.Element {
+  const { login } = useAuth()
+  const navigate = useNavigate()
+  const { push } = useToast()
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  async function handleSubmit(event: FormEvent) {
+    event.preventDefault()
+    setLoading(true)
+    try {
+      await login(email, password)
+      push({ title: 'Signed in', description: 'Welcome back!', variant: 'success' })
+      navigate('/orders', { replace: true })
+    } catch (error) {
+      push({ title: 'Unable to sign in', description: 'Check your email and password.', variant: 'error' })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  function fillDemo() {
+    setEmail('driver@example.com')
+    setPassword('password123')
+  }
+
+  return (
+    <div className="login-container">
+      <div className="login-content">
+        <div className="login-logo">
+          <div className="logo-icon" aria-hidden>
+            📦
+          </div>
+          <h1>Jason&apos;s Delivery</h1>
+          <p>Driver Portal</p>
+        </div>
+        <form className="login-form" onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label htmlFor="email">Email Address</label>
+            <input
+              id="email"
+              type="email"
+              autoComplete="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              placeholder="driver@example.com"
+              required
+            />
+          </div>
+          <div className="form-group">
+            <label htmlFor="password">Password</label>
+            <input
+              id="password"
+              type="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="Min. 6 characters"
+              minLength={6}
+              required
+            />
+          </div>
+          <button type="submit" className="login-btn" disabled={loading}>
+            {loading ? 'Signing In…' : 'Sign In'}
+          </button>
+          <div className="login-footer">
+            <p className="demo-note">Demo: Use any email + 6+ char password</p>
+            <button type="button" className="demo-button" onClick={fillDemo}>
+              Use Demo Credentials
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
