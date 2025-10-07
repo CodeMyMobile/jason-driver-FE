@@ -85,6 +85,19 @@ export function OrderDetail({ order, onArrive, onComplete }: OrderDetailProps): 
         <span>Order Total</span>
         <span>{formatCurrency(order.total)}</span>
       </div>
+      {order.items.length > 0 ? (
+        <div className="items-section">
+          <h4>Items in Order</h4>
+          <ul className="order-items">
+            {order.items.map((item) => (
+              <li key={item.id} className="order-item">
+                <span className="item-quantity">{item.quantity}x</span>
+                <span className="item-name">{item.name}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
       {showArriveButton ? (
         <button
           type="button"
