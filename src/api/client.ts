@@ -1,4 +1,5 @@
 import axios from 'axios'
+import type { AxiosError } from 'axios'
 
 const baseURL = import.meta.env.VITE_CMS_BASE_URL ?? 'http://localhost:4000'
 
@@ -10,20 +11,60 @@ export const apiClient = axios.create({
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response) {
-      console.error('API error', error.response.status, error.response.data)
-    } else {
-      console.error('API error', error)
+    const message = extractErrorMessage(error)
+    console.error('API error:', message)
+    if (error) {
+      console.error(error)
     }
     return Promise.reject(error)
   },
 )
 
+function extractErrorMessage(error: unknown): string {
+  if (axios.isAxiosError(error)) {
+    const axiosError = error as AxiosError<{ message?: string; error?: string; errors?: string[] } | string>
+    const { response, message } = axiosError
+
+    if (!response) {
+      return 'Unable to reach the server. Please check your connection and try again.'
+    }
+
+    const { data, status } = response
+
+    if (typeof data === 'string' && data.trim().length > 0) {
+      return data
+    }
+
+    if (data && typeof data === 'object') {
+      const detailedMessage = data.message ?? data.error ?? data.errors?.join(', ')
+      if (detailedMessage) {
+        return detailedMessage
+      }
+    }
+
+    if (message) {
+      return message
+    }
+
+    return `Request failed with status ${status}`
+  }
+
+  if (error instanceof Error && error.message) {
+    return error.message
+  }
+
+  return 'Something went wrong while communicating with the server.'
+}
+
 export async function safeRequest<T>(request: () => Promise<T>): Promise<T> {
   try {
     return await request()
   } catch (error) {
-    console.error('API request failed', error)
-    throw error
+    const message = extractErrorMessage(error)
+    console.error('API request failed:', message)
+    if (error) {
+      console.error(error)
+    }
+    throw new Error(message)
   }
 }
