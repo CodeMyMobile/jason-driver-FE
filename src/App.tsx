@@ -1,7 +1,6 @@
 import { Navigate, Outlet, Route, Routes } from 'react-router-dom'
 import LoginRoute from './routes/Login'
 import OrdersRoute from './routes/Orders/Index'
-import ChatThread from './routes/Chat/Thread'
 import ProfileRoute from './routes/Profile'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { Header } from './components/Header'
@@ -35,7 +34,6 @@ export default function App(): JSX.Element {
         <Route element={<AppShell />}>
           <Route index element={<Navigate to="/orders" replace />} />
           <Route path="/orders" element={<OrdersRoute />} />
-          <Route path="/chat" element={<ChatThread />} />
           <Route path="/profile" element={<ProfileRoute />} />
         </Route>
       </Route>
