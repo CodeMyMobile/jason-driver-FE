@@ -1,7 +1,13 @@
 import axios from 'axios'
 import type { AxiosError } from 'axios'
 
-const baseURL = import.meta.env.VITE_CMS_BASE_URL ?? 'http://localhost:4000'
+const envBase =
+  (typeof import.meta.env.VITE_CMS_BASE_URL === 'string' &&
+    import.meta.env.VITE_CMS_BASE_URL.trim()) ||
+  (typeof import.meta.env.VITE_API_BASE_URL === 'string' &&
+    import.meta.env.VITE_API_BASE_URL.trim())
+
+const baseURL = (envBase || 'https://api.jasonsliquor.com').replace(/\/+$/, '')
 
 export const apiClient = axios.create({
   baseURL,
