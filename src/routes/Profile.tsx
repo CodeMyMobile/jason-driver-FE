@@ -52,14 +52,6 @@ export default function ProfileRoute(): JSX.Element {
           >
             Online
           </button>
-          <button
-            type="button"
-            className={`status-button ${driver?.status === 'ON_DELIVERY' ? 'active' : ''}`}
-            disabled={updating}
-            onClick={() => handleStatusChange('ON_DELIVERY')}
-          >
-            On Delivery
-          </button>
         </div>
         <p className="tracking-note">Location tracking: {trackingActive ? 'Active' : 'Paused'}</p>
       </section>
