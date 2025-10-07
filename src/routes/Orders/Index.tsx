@@ -29,8 +29,10 @@ export default function OrdersRoute(): JSX.Element {
   }, [orders, selected])
 
   const segmented = useMemo(() => {
-    const pending = orders.filter((order) => order.status === 'NEW' || order.status === 'ASSIGNED')
-    const active = orders.filter((order) => order.status === 'IN_PROGRESS' || order.status === 'ARRIVED')
+    const pending = orders.filter((order) => order.status === 'NEW')
+    const active = orders.filter(
+      (order) => order.status === 'ASSIGNED' || order.status === 'IN_PROGRESS' || order.status === 'ARRIVED',
+    )
     const completed = orders.filter((order) => order.status === 'COMPLETED')
     return { pending, active, completed }
   }, [orders])
@@ -57,6 +59,13 @@ export default function OrdersRoute(): JSX.Element {
   }
 
   useEffect(() => {
+    if (listForTab.length === 0) {
+      if (selected) {
+        setSelected(undefined)
+      }
+      return
+    }
+
     if (!selected) {
       setSelected(listForTab[0])
       return
@@ -68,7 +77,11 @@ export default function OrdersRoute(): JSX.Element {
     }
   }, [activeTab, listForTab, selected])
 
-  const selectedOrder = selected ?? listForTab[0]
+  const selectedOrder = useMemo(() => {
+    if (listForTab.length === 0) return undefined
+    if (!selected) return listForTab[0]
+    return listForTab.find((order) => order.id === selected.id) ?? listForTab[0]
+  }, [listForTab, selected])
 
   return (
     <div className="orders-page">

@@ -11,7 +11,7 @@ interface OrderCardProps {
 }
 
 export function OrderCard({ order, onAccept, onSelect, isSelected }: OrderCardProps): JSX.Element {
-  const isPending = order.status === 'NEW' || order.status === 'ASSIGNED'
+  const isPending = order.status === 'NEW'
   const statusLabel = order.status === 'COMPLETED' ? 'Completed' : undefined
 
   return (
