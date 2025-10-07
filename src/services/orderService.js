@@ -112,22 +112,6 @@ export async function updateOrderStatus(orderId, status, token) {
   )
 }
 
-export async function fetchCardUses(cardReference, token) {
-  if (!cardReference) {
-    return 0
-  }
-
-  try {
-    const response = await client.get(`/drivers/cards/${cardReference}/uses`, {
-      headers: authHeaders(token),
-    })
-
-    return response.data?.uses ?? response.data?.data ?? response.data ?? 0
-  } catch (error) {
-    throw parseError(error, 'Unable to fetch card usage information.')
-  }
-}
-
 export async function fetchCardDetails(stripeCustomerId, cardReference, token) {
   if (!stripeCustomerId || !cardReference) {
     return null
@@ -144,18 +128,6 @@ export async function fetchCardDetails(stripeCustomerId, cardReference, token) {
     return response.data?.card ?? response.data
   } catch (error) {
     throw parseError(error, 'Unable to fetch card details.')
-  }
-}
-
-export async function sendArrivalMessage(payload, token) {
-  try {
-    const response = await client.post('/drivers/orders/send-arrival-message', payload, {
-      headers: authHeaders(token),
-    })
-
-    return response.data
-  } catch (error) {
-    throw parseError(error, 'Unable to send arrival message.')
   }
 }
 
