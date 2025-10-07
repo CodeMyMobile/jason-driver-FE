@@ -27,3 +27,12 @@ Real-time order updates are consumed through the Jason's Liquor WebSocket servic
 - `ORDER_UPDATED`
 
 No mock APIs or sockets are used; unsuccessful connections are logged without falling back to local or dummy data.
+
+## Troubleshooting: 404 on `/auth/login`
+
+Seeing `https://staging-api.jasonsliquor.com/auth/login` return `404 Not Found` means the frontend reached the staging host but that server has no handler registered for `/auth/login`. Common causes are:
+
+1. The staging base URL requires an extra prefix (for example, `https://staging-api.jasonsliquor.com/api`), so the login request should target `.../api/auth/login` instead of `.../auth/login`.
+2. The staging deployment is missing or misconfigured for authentication, so the route truly does not exist until the backend is updated.
+
+Because the Axios client in [`src/api/client.ts`](../src/api/client.ts) simply appends `/auth/login` to whichever origin you provide in `VITE_CMS_BASE_URL`, correcting that environment variable fixes the 404 without further frontend changes.
