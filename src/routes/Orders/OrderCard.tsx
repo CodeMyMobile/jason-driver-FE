@@ -2,6 +2,7 @@ import { Order } from '../../types'
 import { formatCurrency, getInitials } from '../../utils/format'
 import { TimerChip } from '../../components/TimerChip'
 import { classNames } from '../../utils/classNames'
+import { isPendingOrder, normalizeOrderStatus } from '../../utils/orderFilters'
 
 interface OrderCardProps {
   order: Order
@@ -11,8 +12,9 @@ interface OrderCardProps {
 }
 
 export function OrderCard({ order, onAccept, onSelect, isSelected }: OrderCardProps): JSX.Element {
-  const isPending = order.status === 'NEW'
-  const statusLabel = order.status === 'COMPLETED' ? 'Completed' : undefined
+  const pending = isPendingOrder(order)
+  const normalizedStatus = normalizeOrderStatus(order.status)
+  const statusLabel = normalizedStatus === 'COMPLETED' ? 'Completed' : normalizedStatus === 'CANCELLED' ? 'Cancelled' : undefined
 
   return (
     <article
@@ -42,7 +44,7 @@ export function OrderCard({ order, onAccept, onSelect, isSelected }: OrderCardPr
         <span>Order Total</span>
         <span>{formatCurrency(order.total)}</span>
       </div>
-      {isPending && onAccept ? (
+      {pending && onAccept ? (
         <button
           type="button"
           className="action-btn accept-btn"
