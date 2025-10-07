@@ -3,14 +3,7 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import LoaderOverlay from '../../components/LoaderOverlay'
 import { useAuth } from '../../context/AuthContext'
 import fallbackImage from '../../assets/placeholder-product.svg'
-import {
-  fetchCardDetails,
-  fetchCardUses,
-  fetchOrderById,
-  sendArrivalMessage,
-  updateOrder,
-  updateOrderStatus,
-} from '../../services/orderService'
+import { fetchCardDetails, fetchOrderById, updateOrder, updateOrderStatus } from '../../services/orderService'
 import './Orders.css'
 
 const STATUS_VARIANTS = {
@@ -22,8 +15,6 @@ const STATUS_VARIANTS = {
     primaryActionStatus: 'Accepted',
     showMap: false,
     showCardDetails: false,
-    includeCardUsage: true,
-    showMessageActions: false,
     showFinalizeActions: false,
   },
   accepted: {
@@ -34,8 +25,6 @@ const STATUS_VARIANTS = {
     primaryActionStatus: 'In Progress',
     showMap: true,
     showCardDetails: false,
-    includeCardUsage: true,
-    showMessageActions: false,
     showFinalizeActions: false,
   },
   progress: {
@@ -46,8 +35,6 @@ const STATUS_VARIANTS = {
     primaryActionStatus: null,
     showMap: true,
     showCardDetails: true,
-    includeCardUsage: true,
-    showMessageActions: true,
     showFinalizeActions: true,
   },
 }
@@ -134,26 +121,6 @@ function formatAddress(address) {
   return parts.join(', ') || 'No address on file'
 }
 
-function getPhoneNumber(order, forRecipient) {
-  if (!order) {
-    return null
-  }
-
-  if (forRecipient) {
-    if (order.giftDelivery) {
-      return order.giftDeliveryDetails?.recipientPhone || order.owner?.phone || null
-    }
-
-    return order.owner?.phone || null
-  }
-
-  if (order.giftDelivery) {
-    return order.owner?.phone || null
-  }
-
-  return order.giftDeliveryDetails?.recipientPhone || order.owner?.phone || null
-}
-
 export default function OrderDetails() {
   const { status: routeStatusKey, orderId } = useParams()
   const location = useLocation()
@@ -165,12 +132,10 @@ export default function OrderDetails() {
   const [order, setOrder] = useState(initialOrder)
   const [loading, setLoading] = useState(!initialOrder)
   const [error, setError] = useState(null)
-  const [cardUses, setCardUses] = useState(null)
   const [cardDetails, setCardDetails] = useState(null)
   const [cardError, setCardError] = useState(null)
   const [cardLoading, setCardLoading] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
-  const [messageLoading, setMessageLoading] = useState(false)
   const [infoMessage, setInfoMessage] = useState(null)
   const [imageStatus, setImageStatus] = useState(() => initialOrder?.products?.map(() => true) ?? [])
 
@@ -184,7 +149,7 @@ export default function OrderDetails() {
   }, [routeStatusKey, order?.status])
 
   const variant = STATUS_VARIANTS[resolvedStatusKey] ?? STATUS_VARIANTS.assigned
-  const requiresCardInfo = variant.includeCardUsage || variant.showCardDetails
+  const requiresCardDetails = variant.showCardDetails
 
   useEffect(() => {
     let ignore = false
@@ -229,19 +194,19 @@ export default function OrderDetails() {
   useEffect(() => {
     let ignore = false
 
-    async function loadCardInformation() {
-      if (!requiresCardInfo || !order || !token) {
-        setCardUses(null)
+    async function loadCardDetails() {
+      if (!requiresCardDetails || !order || !token) {
         setCardDetails(null)
         setCardError(null)
+        setCardLoading(false)
         return
       }
 
       const reference = order.creditCard || order.paymentMethod
 
       if (!reference) {
-        setCardUses(null)
         setCardDetails(null)
+        setCardLoading(false)
         return
       }
 
@@ -249,19 +214,9 @@ export default function OrderDetails() {
       setCardError(null)
 
       try {
-        if (variant.includeCardUsage) {
-          const uses = await fetchCardUses(reference, token)
-          if (!ignore) {
-            const parsedUses = typeof uses === 'number' ? uses : Number(uses) || 0
-            setCardUses(parsedUses)
-          }
-        }
-
-        if (variant.showCardDetails) {
-          const details = await fetchCardDetails(order.owner?.stripeID, reference, token)
-          if (!ignore) {
-            setCardDetails(details)
-          }
+        const details = await fetchCardDetails(order.owner?.stripeID, reference, token)
+        if (!ignore) {
+          setCardDetails(details)
         }
       } catch (err) {
         if (!ignore) {
@@ -275,12 +230,12 @@ export default function OrderDetails() {
       }
     }
 
-    loadCardInformation()
+    loadCardDetails()
 
     return () => {
       ignore = true
     }
-  }, [order, token, requiresCardInfo, variant.includeCardUsage, variant.showCardDetails])
+  }, [order, token, requiresCardDetails, variant.showCardDetails])
 
   const handleImageError = useCallback((index) => {
     setImageStatus((prev) => {
@@ -344,53 +299,6 @@ export default function OrderDetails() {
     }
   }, [navigate, order, token])
 
-  const handleSendMessage = useCallback(async () => {
-    if (!order || !token) {
-      return
-    }
-
-    const phone = getPhoneNumber(order, false)
-
-    if (!phone) {
-      setInfoMessage({ type: 'error', text: 'No phone number available for this order.' })
-      return
-    }
-
-    setMessageLoading(true)
-    setInfoMessage(null)
-
-    try {
-      await sendArrivalMessage(
-        {
-          phone,
-          orderId: order._id,
-        },
-        token,
-      )
-      setInfoMessage({ type: 'success', text: 'Arrival message sent successfully.' })
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unable to send message.'
-      setInfoMessage({ type: 'error', text: message })
-    } finally {
-      setMessageLoading(false)
-    }
-  }, [order, token])
-
-  const handleCall = useCallback(() => {
-    if (!order) {
-      return
-    }
-
-    const phone = getPhoneNumber(order, true)
-
-    if (!phone) {
-      setInfoMessage({ type: 'error', text: 'No phone number available to call.' })
-      return
-    }
-
-    window.open(`tel:${phone}`)
-  }, [order])
-
   const navigateToBypass = useCallback(() => {
     if (!order) {
       return
@@ -440,15 +348,11 @@ export default function OrderDetails() {
   }
 
   const mapUrl = variant.showMap ? buildMapUrl(order.address) : null
-  const overlayLabel = actionLoading
-    ? 'Updating order…'
-    : messageLoading
-    ? 'Sending message…'
-    : 'Working…'
+  const overlayLabel = 'Updating order…'
 
   return (
     <div className="order-detail-screen">
-      <LoaderOverlay show={actionLoading || messageLoading} label={overlayLabel} />
+      <LoaderOverlay show={actionLoading} label={overlayLabel} />
 
       <div className="order-detail-header">
         <h1 className="order-detail-title">{formatName(order.owner)}</h1>
@@ -513,12 +417,6 @@ export default function OrderDetails() {
           <span>
             <strong>Customer:</strong> {formatName(order.owner)}
           </span>
-          {variant.includeCardUsage ? (
-            <span>
-              <strong>Card Uses:</strong> {cardUses ?? '—'}{' '}
-              {cardUses === 1 ? <span className="badge">New Card</span> : null}
-            </span>
-          ) : null}
           <span>
             <strong>Orders Count:</strong> {order.owner?.orderCount ?? 0}{' '}
             {order.owner?.orderCount === 1 ? <span className="badge">New Customer</span> : null}
@@ -610,21 +508,6 @@ export default function OrderDetails() {
         ) : null}
         {cardLoading ? <p className="order-card-meta">Loading payment details…</p> : null}
       </section>
-
-      {variant.showMessageActions ? (
-        <section className="order-section-card">
-          <h2 className="section-heading">Send Message</h2>
-          <p className="order-card-meta">Tap to notify the customer that you have arrived.</p>
-          <div className="action-grid">
-            <button type="button" className="action-button" onClick={handleSendMessage}>
-              Send Arrival Message
-            </button>
-            <button type="button" className="action-button" onClick={handleCall}>
-              Call Customer
-            </button>
-          </div>
-        </section>
-      ) : null}
 
       {variant.showFinalizeActions ? (
         <section className="order-section-card">

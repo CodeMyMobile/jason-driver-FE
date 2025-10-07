@@ -65,6 +65,26 @@ export async function fetchOrderById(orderId, token) {
   }
 }
 
+async function attemptLegacyUpdate(updates, token) {
+  try {
+    const response = await client.put('/drivers/orders', updates, {
+      headers: authHeaders(token),
+    })
+
+    return response.data
+  } catch (legacyError) {
+    if (legacyError.response?.status && [404, 405].includes(legacyError.response.status)) {
+      const fallbackResponse = await client.post('/drivers/orders/update', updates, {
+        headers: authHeaders(token),
+      })
+
+      return fallbackResponse.data
+    }
+
+    throw legacyError
+  }
+}
+
 export async function updateOrder(updates, token) {
   try {
     const response = await client.patch(`/drivers/orders/${updates._id}`, updates, {
@@ -72,20 +92,13 @@ export async function updateOrder(updates, token) {
     })
 
     return response.data
-  } catch (error) {
-    if (error.response?.status && [404, 405].includes(error.response.status)) {
-      try {
-        const fallbackResponse = await client.post('/drivers/orders/update', updates, {
-          headers: authHeaders(token),
-        })
-
-        return fallbackResponse.data
-      } catch (fallbackError) {
-        throw parseError(fallbackError, 'Unable to update order.')
-      }
+  } catch (primaryError) {
+    try {
+      return await attemptLegacyUpdate(updates, token)
+    } catch (fallbackError) {
+      const finalError = fallbackError ?? primaryError
+      throw parseError(finalError, 'Unable to update order.')
     }
-
-    throw parseError(error, 'Unable to update order.')
   }
 }
 
@@ -97,22 +110,6 @@ export async function updateOrderStatus(orderId, status, token) {
     },
     token,
   )
-}
-
-export async function fetchCardUses(cardReference, token) {
-  if (!cardReference) {
-    return 0
-  }
-
-  try {
-    const response = await client.get(`/drivers/cards/${cardReference}/uses`, {
-      headers: authHeaders(token),
-    })
-
-    return response.data?.uses ?? response.data?.data ?? response.data ?? 0
-  } catch (error) {
-    throw parseError(error, 'Unable to fetch card usage information.')
-  }
 }
 
 export async function fetchCardDetails(stripeCustomerId, cardReference, token) {
@@ -131,18 +128,6 @@ export async function fetchCardDetails(stripeCustomerId, cardReference, token) {
     return response.data?.card ?? response.data
   } catch (error) {
     throw parseError(error, 'Unable to fetch card details.')
-  }
-}
-
-export async function sendArrivalMessage(payload, token) {
-  try {
-    const response = await client.post('/drivers/orders/send-arrival-message', payload, {
-      headers: authHeaders(token),
-    })
-
-    return response.data
-  } catch (error) {
-    throw parseError(error, 'Unable to send arrival message.')
   }
 }
 
