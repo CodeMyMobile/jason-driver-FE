@@ -65,6 +65,26 @@ export async function fetchOrderById(orderId, token) {
   }
 }
 
+async function attemptLegacyUpdate(updates, token) {
+  try {
+    const response = await client.put('/drivers/orders', updates, {
+      headers: authHeaders(token),
+    })
+
+    return response.data
+  } catch (legacyError) {
+    if (legacyError.response?.status && [404, 405].includes(legacyError.response.status)) {
+      const fallbackResponse = await client.post('/drivers/orders/update', updates, {
+        headers: authHeaders(token),
+      })
+
+      return fallbackResponse.data
+    }
+
+    throw legacyError
+  }
+}
+
 export async function updateOrder(updates, token) {
   try {
     const response = await client.patch(`/drivers/orders/${updates._id}`, updates, {
@@ -72,20 +92,13 @@ export async function updateOrder(updates, token) {
     })
 
     return response.data
-  } catch (error) {
-    if (error.response?.status && [404, 405].includes(error.response.status)) {
-      try {
-        const fallbackResponse = await client.post('/drivers/orders/update', updates, {
-          headers: authHeaders(token),
-        })
-
-        return fallbackResponse.data
-      } catch (fallbackError) {
-        throw parseError(fallbackError, 'Unable to update order.')
-      }
+  } catch (primaryError) {
+    try {
+      return await attemptLegacyUpdate(updates, token)
+    } catch (fallbackError) {
+      const finalError = fallbackError ?? primaryError
+      throw parseError(finalError, 'Unable to update order.')
     }
-
-    throw parseError(error, 'Unable to update order.')
   }
 }
 
