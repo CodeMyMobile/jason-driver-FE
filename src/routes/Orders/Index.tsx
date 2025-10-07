@@ -9,47 +9,73 @@ import { useToast } from '../../hooks/useToast'
 import { useAuth } from '../../hooks/useAuth'
 
 const tabConfig = [
-  { id: 'pending', label: 'Pending' },
-  { id: 'active', label: 'Active' },
+  { id: 'assigned', label: 'Assigned' },
+  { id: 'accepted', label: 'Accepted (In Progress)' },
   { id: 'completed', label: 'Completed' },
 ]
 
 type TabId = (typeof tabConfig)[number]['id']
 
+function isCompleted(order: Order): boolean {
+  return Boolean(order.completedAt) || order.status === 'COMPLETED'
+}
+
+function isActive(order: Order): boolean {
+  if (isCompleted(order)) return false
+  if (order.status === 'ARRIVED' || order.status === 'IN_PROGRESS') return true
+  if (order.startedAt) return true
+  if (order.acceptedAt) return true
+  if (order.status === 'ASSIGNED' && (order.acceptedAt || order.startedAt)) return true
+  return false
+}
+
 export default function OrdersRoute(): JSX.Element {
-  const { orders, accept, markArrived, markComplete } = useOrders()
+  const { orders, accept, markStarted, markArrived, markComplete } = useOrders()
   const { push } = useToast()
   const { driver } = useAuth()
-  const [activeTab, setActiveTab] = useState<TabId>('pending')
+  const [activeTab, setActiveTab] = useState<TabId>('assigned')
   const [expandedCompletedId, setExpandedCompletedId] = useState<string | undefined>(undefined)
   const [completedVisibleCount, setCompletedVisibleCount] = useState(10)
 
   const segmented = useMemo(() => {
-    const pending = orders.filter((order) => order.status === 'NEW')
-    const active = orders.filter((order) => {
-      if (order.status !== 'IN_PROGRESS' && order.status !== 'ARRIVED') {
-        return false
+    const assigned: Order[] = []
+    const accepted: Order[] = []
+    const completed: Order[] = []
+    const driverId = driver?.id
+
+    orders.forEach((order) => {
+      if (!driverId || order.assignedDriverId !== driverId) {
+        return
       }
 
-      if (!driver) return true
+      if (isCompleted(order)) {
+        completed.push(order)
+        return
+      }
 
-      return order.assignedDriverId === driver.id
+      if (isActive(order)) {
+        accepted.push(order)
+        return
+      }
+
+      assigned.push(order)
     })
-    const completed = orders
-      .filter((order) => {
-        if (order.status !== 'COMPLETED') return false
-        if (!driver) return true
-        return order.assignedDriverId === driver.id
-      })
-      .sort(
-        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-      )
-    return { pending, active, completed }
-  }, [driver, orders])
+
+    completed.sort((a, b) => {
+      const aDate = a.completedAt ?? a.createdAt
+      const bDate = b.completedAt ?? b.createdAt
+      return new Date(bDate).getTime() - new Date(aDate).getTime()
+    })
+
+    accepted.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+    assigned.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+
+    return { assigned, accepted, completed }
+  }, [driver?.id, orders])
 
   const listForTab = useMemo(() => {
-    if (activeTab === 'pending') return segmented.pending
-    if (activeTab === 'active') return segmented.active
+    if (activeTab === 'assigned') return segmented.assigned
+    if (activeTab === 'accepted') return segmented.accepted
     return segmented.completed
   }, [activeTab, segmented])
 
@@ -62,7 +88,11 @@ export default function OrdersRoute(): JSX.Element {
 
   const handleAccept = async (order: Order) => {
     await accept(order.id)
-    setActiveTab('active')
+    setActiveTab('accepted')
+  }
+
+  const handleStart = async (orderId: string) => {
+    await markStarted(orderId)
   }
 
   const handleArrive = async (orderId: string) => {
@@ -96,11 +126,14 @@ export default function OrdersRoute(): JSX.Element {
   return (
     <div className="orders-page">
       <Tabs
-        tabs={tabConfig.map((tab) => ({ ...tab, badge: tab.id === 'pending' ? segmented.pending.length : undefined }))}
+        tabs={tabConfig.map((tab) => ({
+          ...tab,
+          badge: tab.id === 'assigned' ? segmented.assigned.length : undefined,
+        }))}
         activeId={activeTab}
         onChange={(id) => setActiveTab(id as TabId)}
       />
-      {activeTab === 'pending' ? (
+      {activeTab === 'assigned' ? (
         <div className="pending-orders">
           <div className="orders-list pending-list">
             {listForTab.length === 0 ? (
@@ -112,13 +145,19 @@ export default function OrdersRoute(): JSX.Element {
             )}
           </div>
         </div>
-      ) : activeTab === 'active' ? (
+      ) : activeTab === 'accepted' ? (
         <div className="active-orders">
           {listForTab.length === 0 ? (
             <p className="empty-state">No orders in this state.</p>
           ) : (
             listForTab.map((order) => (
-              <OrderDetail key={order.id} order={order} onArrive={handleArrive} onComplete={handleComplete} />
+              <OrderDetail
+                key={order.id}
+                order={order}
+                onStart={handleStart}
+                onArrive={handleArrive}
+                onComplete={handleComplete}
+              />
             ))
           )}
         </div>
@@ -135,12 +174,8 @@ export default function OrdersRoute(): JSX.Element {
                     order={order}
                     expanded={expandedCompletedId === order.id}
                     onToggle={(next) =>
-                      setExpandedCompletedId((current) =>
-                        current === next.id ? undefined : next.id,
-                      )
+                      setExpandedCompletedId((current) => (current === next.id ? undefined : next.id))
                     }
-                    onArrive={handleArrive}
-                    onComplete={handleComplete}
                   />
                 ))}
               </div>
