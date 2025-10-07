@@ -23,6 +23,25 @@ export async function acceptOrder(orderId: string): Promise<Order> {
       if (!existing) {
         throw new Error('Order not found')
       }
+      existing.acceptedAt = new Date().toISOString()
+      existing.status = 'ASSIGNED'
+      return existing
+    },
+  )
+}
+
+export async function startOrder(orderId: string): Promise<Order> {
+  return safeRequest(
+    async () => {
+      const response = await apiClient.post<Order>(`/orders/${orderId}/start`)
+      return response.data
+    },
+    async () => {
+      const existing = mockOrders.find((order) => order.id === orderId)
+      if (!existing) {
+        throw new Error('Order not found')
+      }
+      existing.startedAt = new Date().toISOString()
       existing.status = 'IN_PROGRESS'
       return existing
     },
@@ -40,6 +59,7 @@ export async function arriveOrder(orderId: string): Promise<Order> {
       if (!existing) {
         throw new Error('Order not found')
       }
+      existing.arrivedAt = new Date().toISOString()
       existing.status = 'ARRIVED'
       return existing
     },
@@ -49,7 +69,9 @@ export async function arriveOrder(orderId: string): Promise<Order> {
 export async function completeOrder(orderId: string, signature?: string): Promise<Order> {
   return safeRequest(
     async () => {
-      const response = await apiClient.post<Order>(`/orders/${orderId}/complete`, { signature })
+      const response = await apiClient.post<Order>(`/orders/${orderId}/complete`, {
+        proof: signature ? { signatureUrl: signature } : undefined,
+      })
       return response.data
     },
     async () => {
@@ -57,6 +79,7 @@ export async function completeOrder(orderId: string, signature?: string): Promis
       if (!existing) {
         throw new Error('Order not found')
       }
+      existing.completedAt = new Date().toISOString()
       existing.status = 'COMPLETED'
       return existing
     },

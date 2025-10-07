@@ -44,6 +44,8 @@ export const mockOrders: Order[] = [
     requiresIdCheck: true,
     requiresPaymentCheck: true,
     createdAt: minutesAgo(28),
+    acceptedAt: minutesAgo(32),
+    startedAt: minutesAgo(30),
     customer: {
       name: 'John Doe',
       phone: '(555) 246-8135',
@@ -66,6 +68,10 @@ export const mockOrders: Order[] = [
     requiresIdCheck: true,
     requiresPaymentCheck: true,
     createdAt: minutesAgo(125),
+    acceptedAt: minutesAgo(120),
+    startedAt: minutesAgo(118),
+    arrivedAt: minutesAgo(110),
+    completedAt: minutesAgo(105),
     customer: {
       name: 'Alice Lee',
       phone: '(555) 678-9012',

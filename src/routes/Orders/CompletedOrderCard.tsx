@@ -7,18 +7,11 @@ interface CompletedOrderCardProps {
   order: Order
   expanded: boolean
   onToggle: (order: Order) => void
-  onArrive: (orderId: string) => Promise<void>
-  onComplete: (orderId: string, signature: string) => Promise<void>
 }
 
-export function CompletedOrderCard({
-  order,
-  expanded,
-  onToggle,
-  onArrive,
-  onComplete,
-}: CompletedOrderCardProps): JSX.Element {
-  const deliveredTime = formatTimeOfDay(order.createdAt)
+export function CompletedOrderCard({ order, expanded, onToggle }: CompletedOrderCardProps): JSX.Element {
+  const deliveredAt = order.completedAt ?? order.createdAt
+  const deliveredTime = formatTimeOfDay(deliveredAt)
 
   return (
     <article className={classNames('completed-order-card', expanded && 'expanded')}>
@@ -48,7 +41,7 @@ export function CompletedOrderCard({
       </button>
       {expanded ? (
         <div className="completed-order-detail" id={`completed-order-${order.id}`}>
-          <OrderDetail order={order} onArrive={onArrive} onComplete={onComplete} />
+          <OrderDetail order={order} />
         </div>
       ) : null}
     </article>

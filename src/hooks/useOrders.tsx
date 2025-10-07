@@ -7,8 +7,7 @@ import {
   useMemo,
   useState,
 } from 'react'
-import { acceptOrder, completeOrder, getOrders } from '../api/orders'
-import { arriveOrder } from '../api/orders'
+import { acceptOrder, completeOrder, getOrders, startOrder, arriveOrder } from '../api/orders'
 import { Order } from '../types'
 import { useSocket } from './useSocket'
 import { useToast } from './useToast'
@@ -18,6 +17,7 @@ interface OrdersContextValue {
   orders: Order[]
   refresh: () => Promise<void>
   accept: (orderId: string) => Promise<void>
+  markStarted: (orderId: string) => Promise<void>
   markArrived: (orderId: string) => Promise<void>
   markComplete: (orderId: string, signature?: string) => Promise<void>
   isFetching: boolean
@@ -78,6 +78,12 @@ export function OrdersProvider({ children }: PropsWithChildren): JSX.Element {
     push({ title: 'Order accepted', description: order.number, variant: 'success' })
   }, [mergeOrder, push])
 
+  const markStarted = useCallback(async (orderId: string) => {
+    const order = await startOrder(orderId)
+    mergeOrder(order)
+    push({ title: 'Delivery started', description: order.number, variant: 'info' })
+  }, [mergeOrder, push])
+
   const markArrived = useCallback(async (orderId: string) => {
     const order = await arriveOrder(orderId)
     mergeOrder(order)
@@ -91,8 +97,8 @@ export function OrdersProvider({ children }: PropsWithChildren): JSX.Element {
   }, [mergeOrder, push])
 
   const value = useMemo<OrdersContextValue>(
-    () => ({ orders, refresh, accept, markArrived, markComplete, isFetching }),
-    [accept, isFetching, markArrived, markComplete, orders, refresh],
+    () => ({ orders, refresh, accept, markStarted, markArrived, markComplete, isFetching }),
+    [accept, isFetching, markArrived, markComplete, markStarted, orders, refresh],
   )
 
   return <OrdersContext.Provider value={value}>{children}</OrdersContext.Provider>
