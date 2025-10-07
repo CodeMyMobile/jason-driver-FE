@@ -3,6 +3,7 @@ import { useOrders } from '../../hooks/useOrders'
 import { Tabs } from '../../components/Tabs'
 import { OrderCard } from './OrderCard'
 import { OrderDetail } from './OrderDetail'
+import { CompletedOrderCard } from './CompletedOrderCard'
 import { Order } from '../../types'
 import { useToast } from '../../hooks/useToast'
 import { useAuth } from '../../hooks/useAuth'
@@ -20,27 +21,44 @@ export default function OrdersRoute(): JSX.Element {
   const { push } = useToast()
   const { driver } = useAuth()
   const [activeTab, setActiveTab] = useState<TabId>('pending')
-  const [selectedId, setSelectedId] = useState<string | undefined>(undefined)
-
-  const filteredOrders = useMemo(() => {
-    if (!driver) return orders
-    return orders.filter((order) => order.assignedDriverId === driver.id)
-  }, [driver, orders])
+  const [expandedCompletedId, setExpandedCompletedId] = useState<string | undefined>(undefined)
+  const [completedVisibleCount, setCompletedVisibleCount] = useState(10)
 
   const segmented = useMemo(() => {
-    const pending = filteredOrders.filter((order) => order.status === 'NEW')
-    const active = filteredOrders.filter(
-      (order) => order.status === 'IN_PROGRESS' || order.status === 'ARRIVED',
-    )
-    const completed = filteredOrders.filter((order) => order.status === 'COMPLETED')
+    const pending = orders.filter((order) => order.status === 'NEW')
+    const active = orders.filter((order) => {
+      if (order.status !== 'IN_PROGRESS' && order.status !== 'ARRIVED') {
+        return false
+      }
+
+      if (!driver) return true
+
+      return order.assignedDriverId === driver.id
+    })
+    const completed = orders
+      .filter((order) => {
+        if (order.status !== 'COMPLETED') return false
+        if (!driver) return true
+        return order.assignedDriverId === driver.id
+      })
+      .sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      )
     return { pending, active, completed }
-  }, [filteredOrders])
+  }, [driver, orders])
 
   const listForTab = useMemo(() => {
     if (activeTab === 'pending') return segmented.pending
     if (activeTab === 'active') return segmented.active
     return segmented.completed
   }, [activeTab, segmented])
+
+  const visibleCompletedOrders = useMemo(
+    () => segmented.completed.slice(0, completedVisibleCount),
+    [completedVisibleCount, segmented.completed],
+  )
+
+  const canShowMoreCompleted = segmented.completed.length > completedVisibleCount
 
   const handleAccept = async (order: Order) => {
     await accept(order.id)
@@ -58,36 +76,22 @@ export default function OrdersRoute(): JSX.Element {
 
   useEffect(() => {
     if (activeTab !== 'completed') {
-      if (selectedId) {
-        setSelectedId(undefined)
-      }
-      return
+      setExpandedCompletedId(undefined)
     }
+  }, [activeTab])
 
-    if (listForTab.length === 0) {
-      if (selectedId) {
-        setSelectedId(undefined)
-      }
-      return
+  useEffect(() => {
+    if (!expandedCompletedId) return
+
+    const stillExists = segmented.completed.some((order) => order.id === expandedCompletedId)
+    if (!stillExists) {
+      setExpandedCompletedId(undefined)
     }
+  }, [expandedCompletedId, segmented.completed])
 
-    if (!selectedId) {
-      setSelectedId(listForTab[0].id)
-      return
-    }
-
-    const existsInTab = listForTab.some((order) => order.id === selectedId)
-    if (!existsInTab) {
-      setSelectedId(listForTab[0].id)
-    }
-  }, [activeTab, listForTab, selectedId])
-
-  const selectedOrder = useMemo(() => {
-    if (activeTab !== 'completed') return undefined
-    if (listForTab.length === 0) return undefined
-    if (!selectedId) return listForTab[0]
-    return listForTab.find((order) => order.id === selectedId) ?? listForTab[0]
-  }, [activeTab, listForTab, selectedId])
+  useEffect(() => {
+    setCompletedVisibleCount(10)
+  }, [segmented.completed.length])
 
   return (
     <div className="orders-page">
@@ -119,25 +123,41 @@ export default function OrdersRoute(): JSX.Element {
           )}
         </div>
       ) : (
-        <div className="orders-content">
-          <div className="orders-list">
-            {listForTab.length === 0 ? (
-              <p className="empty-state">No orders in this state.</p>
-            ) : (
-              listForTab.map((order) => (
-                <OrderCard
-                  key={order.id}
-                  order={order}
-                  isSelected={selectedOrder?.id === order.id}
-                  onSelect={(next) => setSelectedId(next.id)}
-                />
-              ))
-            )}
-          </div>
-          {selectedOrder ? (
-            <OrderDetail order={selectedOrder} onArrive={handleArrive} onComplete={handleComplete} />
+        <div className="completed-orders">
+          {segmented.completed.length === 0 ? (
+            <p className="empty-state">No orders in this state.</p>
           ) : (
-            <div className="order-placeholder">Select an order to view its details.</div>
+            <>
+              <div className="completed-orders-list">
+                {visibleCompletedOrders.map((order) => (
+                  <CompletedOrderCard
+                    key={order.id}
+                    order={order}
+                    expanded={expandedCompletedId === order.id}
+                    onToggle={(next) =>
+                      setExpandedCompletedId((current) =>
+                        current === next.id ? undefined : next.id,
+                      )
+                    }
+                    onArrive={handleArrive}
+                    onComplete={handleComplete}
+                  />
+                ))}
+              </div>
+              {canShowMoreCompleted ? (
+                <button
+                  type="button"
+                  className="see-more-button"
+                  onClick={() =>
+                    setCompletedVisibleCount((current) =>
+                      Math.min(current + 10, segmented.completed.length),
+                    )
+                  }
+                >
+                  See more
+                </button>
+              ) : null}
+            </>
           )}
         </div>
       )}
