@@ -3,6 +3,7 @@ import { useAuth } from '../hooks/useAuth'
 import { DriverTabs } from '../components/driver/Tabs'
 import { useDriverTelemetry } from './hooks/useDriverTelemetry'
 import { TrackingIndicator } from './layout/TrackingIndicator'
+import { DriverStatusToggle } from './components/DriverStatusToggle'
 import './driver.css'
 
 function statusClass(status?: string): string {
@@ -45,12 +46,17 @@ export default function DriverApp(): JSX.Element {
     <div className="driver-app">
       <div className="driver-shell">
         <header className="driver-header">
-          <div className="driver-status-pill">
-            <span className={`driver-status-dot ${statusClass(driver?.status)}`} />
-            <span>{driver?.status ?? 'OFFLINE'}</span>
+          <div className="driver-header-top">
+            <div className="driver-status-pill">
+              <span className={`driver-status-dot ${statusClass(driver?.status)}`} />
+              <span>{driver?.status ?? 'OFFLINE'}</span>
+            </div>
+            <DriverStatusToggle />
           </div>
-          <h1>Jason Driver</h1>
-          <p>{driver ? `Welcome back, ${driver.name.split(' ')[0]}!` : 'Sign in to begin delivering.'}</p>
+          <div className="driver-header-main">
+            <h1>Jason Driver</h1>
+            <p>{driver ? `Welcome back, ${driver.name.split(' ')[0]}!` : 'Sign in to begin delivering.'}</p>
+          </div>
           <TrackingIndicator active={isActive && tracking} />
         </header>
         <main className="driver-content">

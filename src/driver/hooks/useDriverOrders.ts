@@ -23,7 +23,7 @@ const ACTIVE_STATUSES = new Set<DriverOrder['status']>(['ASSIGNED', 'IN_PROGRESS
 const COMPLETED_STATUSES = new Set<DriverOrder['status']>(['COMPLETED'])
 
 export function useDriverOrders(): UseDriverOrdersResult {
-  const { driver } = useAuth()
+  const { driver, setStatus } = useAuth()
   const { subscribe } = useSocket()
   const [orders, setOrders] = useState<DriverOrder[]>([])
   const [isFetching, setIsFetching] = useState(false)
@@ -118,7 +118,7 @@ export function useDriverOrders(): UseDriverOrdersResult {
         throw error
       }
     },
-    [upsertOrder],
+    [setStatus, upsertOrder],
   )
 
   const start = useCallback(
@@ -132,13 +132,18 @@ export function useDriverOrders(): UseDriverOrdersResult {
           acceptedAt: normalized.acceptedAt ?? new Date().toISOString(),
         }
         upsertOrder(ensured)
+        try {
+          await setStatus('ON_DELIVERY')
+        } catch (error) {
+          console.error('Failed to set driver status to ON_DELIVERY', error)
+        }
         return ensured
       } catch (error) {
         console.error('Failed to start order', error)
         throw error
       }
     },
-    [upsertOrder],
+    [setStatus, upsertOrder],
   )
 
   const arrive = useCallback(
@@ -152,13 +157,18 @@ export function useDriverOrders(): UseDriverOrdersResult {
           startedAt: normalized.startedAt ?? normalized.acceptedAt ?? new Date().toISOString(),
         }
         upsertOrder(ensured)
+        try {
+          await setStatus('ON_DELIVERY')
+        } catch (error) {
+          console.error('Failed to maintain driver ON_DELIVERY status', error)
+        }
         return ensured
       } catch (error) {
         console.error('Failed to arrive order', error)
         throw error
       }
     },
-    [upsertOrder],
+    [setStatus, upsertOrder],
   )
 
   const complete = useCallback(
@@ -171,13 +181,18 @@ export function useDriverOrders(): UseDriverOrdersResult {
           completedAt: normalized.completedAt ?? new Date().toISOString(),
         }
         upsertOrder(ensured)
+        try {
+          await setStatus('ONLINE')
+        } catch (error) {
+          console.error('Failed to return driver status to ONLINE', error)
+        }
         return ensured
       } catch (error) {
         console.error('Failed to complete order', error)
         throw error
       }
     },
-    [upsertOrder],
+    [setStatus, upsertOrder],
   )
 
   return {
