@@ -20,25 +20,17 @@ export default function OrdersRoute(): JSX.Element {
   const { push } = useToast()
   const { driver } = useAuth()
   const [activeTab, setActiveTab] = useState<TabId>('pending')
-  const [selected, setSelected] = useState<Order | undefined>(undefined)
+  const [selectedId, setSelectedId] = useState<string | undefined>(undefined)
 
   const filteredOrders = useMemo(() => {
     if (!driver) return orders
     return orders.filter((order) => order.assignedDriverId === driver.id)
   }, [driver, orders])
 
-  useEffect(() => {
-    if (!selected) return
-    const next = filteredOrders.find((order) => order.id === selected.id)
-    if (next && next !== selected) {
-      setSelected(next)
-    }
-  }, [filteredOrders, selected])
-
   const segmented = useMemo(() => {
     const pending = filteredOrders.filter((order) => order.status === 'NEW')
     const active = filteredOrders.filter(
-      (order) => order.status === 'ASSIGNED' || order.status === 'IN_PROGRESS' || order.status === 'ARRIVED',
+      (order) => order.status === 'IN_PROGRESS' || order.status === 'ARRIVED',
     )
     const completed = filteredOrders.filter((order) => order.status === 'COMPLETED')
     return { pending, active, completed }
@@ -52,7 +44,6 @@ export default function OrdersRoute(): JSX.Element {
 
   const handleAccept = async (order: Order) => {
     await accept(order.id)
-    setSelected(order)
     setActiveTab('active')
   }
 
@@ -66,37 +57,37 @@ export default function OrdersRoute(): JSX.Element {
   }
 
   useEffect(() => {
-    if (activeTab === 'pending') {
-      if (selected) {
-        setSelected(undefined)
+    if (activeTab !== 'completed') {
+      if (selectedId) {
+        setSelectedId(undefined)
       }
       return
     }
 
     if (listForTab.length === 0) {
-      if (selected) {
-        setSelected(undefined)
+      if (selectedId) {
+        setSelectedId(undefined)
       }
       return
     }
 
-    if (!selected) {
-      setSelected(listForTab[0])
+    if (!selectedId) {
+      setSelectedId(listForTab[0].id)
       return
     }
 
-    const existsInTab = listForTab.some((order) => order.id === selected.id)
+    const existsInTab = listForTab.some((order) => order.id === selectedId)
     if (!existsInTab) {
-      setSelected(listForTab[0])
+      setSelectedId(listForTab[0].id)
     }
-  }, [activeTab, listForTab, selected])
+  }, [activeTab, listForTab, selectedId])
 
   const selectedOrder = useMemo(() => {
-    if (activeTab === 'pending') return undefined
+    if (activeTab !== 'completed') return undefined
     if (listForTab.length === 0) return undefined
-    if (!selected) return listForTab[0]
-    return listForTab.find((order) => order.id === selected.id) ?? listForTab[0]
-  }, [activeTab, listForTab, selected])
+    if (!selectedId) return listForTab[0]
+    return listForTab.find((order) => order.id === selectedId) ?? listForTab[0]
+  }, [activeTab, listForTab, selectedId])
 
   return (
     <div className="orders-page">
@@ -117,6 +108,16 @@ export default function OrdersRoute(): JSX.Element {
             )}
           </div>
         </div>
+      ) : activeTab === 'active' ? (
+        <div className="active-orders">
+          {listForTab.length === 0 ? (
+            <p className="empty-state">No orders in this state.</p>
+          ) : (
+            listForTab.map((order) => (
+              <OrderDetail key={order.id} order={order} onArrive={handleArrive} onComplete={handleComplete} />
+            ))
+          )}
+        </div>
       ) : (
         <div className="orders-content">
           <div className="orders-list">
@@ -128,7 +129,7 @@ export default function OrdersRoute(): JSX.Element {
                   key={order.id}
                   order={order}
                   isSelected={selectedOrder?.id === order.id}
-                  onSelect={setSelected}
+                  onSelect={(next) => setSelectedId(next.id)}
                 />
               ))
             )}
