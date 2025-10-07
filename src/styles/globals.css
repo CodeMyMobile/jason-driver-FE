@@ -359,6 +359,13 @@ button {
   padding: 20px;
 }
 
+.active-orders {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 20px;
+}
+
 .orders-list {
   display: flex;
   flex-direction: column;
