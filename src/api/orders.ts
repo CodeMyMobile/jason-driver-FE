@@ -2,6 +2,11 @@ import { apiClient, safeRequest } from './client'
 import { mockOrders } from './mockData'
 import { Order } from '../types'
 
+export interface CompleteOrderPayload {
+  proof?: { signatureUrl: string }
+  notes?: string
+}
+
 export async function getOrders(): Promise<Order[]> {
   return safeRequest(
     async () => {
@@ -24,6 +29,25 @@ export async function acceptOrder(orderId: string): Promise<Order> {
         throw new Error('Order not found')
       }
       existing.status = 'IN_PROGRESS'
+      ;(existing as Record<string, unknown>).acceptedAt = new Date().toISOString()
+      return existing
+    },
+  )
+}
+
+export async function startOrder(orderId: string): Promise<Order> {
+  return safeRequest(
+    async () => {
+      const response = await apiClient.post<Order>(`/orders/${orderId}/start`)
+      return response.data
+    },
+    async () => {
+      const existing = mockOrders.find((order) => order.id === orderId)
+      if (!existing) {
+        throw new Error('Order not found')
+      }
+      existing.status = 'IN_PROGRESS'
+      ;(existing as Record<string, unknown>).startedAt = new Date().toISOString()
       return existing
     },
   )
@@ -41,15 +65,16 @@ export async function arriveOrder(orderId: string): Promise<Order> {
         throw new Error('Order not found')
       }
       existing.status = 'ARRIVED'
+      ;(existing as Record<string, unknown>).arrivedAt = new Date().toISOString()
       return existing
     },
   )
 }
 
-export async function completeOrder(orderId: string, signature?: string): Promise<Order> {
+export async function completeOrder(orderId: string, payload?: CompleteOrderPayload): Promise<Order> {
   return safeRequest(
     async () => {
-      const response = await apiClient.post<Order>(`/orders/${orderId}/complete`, { signature })
+      const response = await apiClient.post<Order>(`/orders/${orderId}/complete`, payload ?? {})
       return response.data
     },
     async () => {
@@ -58,6 +83,7 @@ export async function completeOrder(orderId: string, signature?: string): Promis
         throw new Error('Order not found')
       }
       existing.status = 'COMPLETED'
+      ;(existing as Record<string, unknown>).completedAt = new Date().toISOString()
       return existing
     },
   )

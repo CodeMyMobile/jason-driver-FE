@@ -3,6 +3,7 @@ import LoginRoute from './routes/Login'
 import OrdersRoute from './routes/Orders/Index'
 import ProfileRoute from './routes/Profile'
 import { ProtectedRoute } from './components/ProtectedRoute'
+import DriverRoutes from './driver'
 import { Header } from './components/Header'
 import { BottomNav } from './components/BottomNav'
 import { useAuth } from './hooks/useAuth'
@@ -37,6 +38,7 @@ export default function App(): JSX.Element {
           <Route path="/profile" element={<ProfileRoute />} />
         </Route>
       </Route>
+      <Route path="/driver/*" element={<DriverRoutes />} />
       <Route path="*" element={<Navigate to="/orders" replace />} />
     </Routes>
   )

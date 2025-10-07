@@ -9,6 +9,7 @@ import {
 } from 'react'
 import { acceptOrder, completeOrder, getOrders } from '../api/orders'
 import { arriveOrder } from '../api/orders'
+import type { CompleteOrderPayload } from '../api/orders'
 import { Order } from '../types'
 import { useSocket } from './useSocket'
 import { useToast } from './useToast'
@@ -85,7 +86,11 @@ export function OrdersProvider({ children }: PropsWithChildren): JSX.Element {
   }, [mergeOrder, push])
 
   const markComplete = useCallback(async (orderId: string, signature?: string) => {
-    const order = await completeOrder(orderId, signature)
+    let payload: CompleteOrderPayload | undefined
+    if (signature) {
+      payload = { proof: { signatureUrl: signature } }
+    }
+    const order = await completeOrder(orderId, payload)
     mergeOrder(order)
     push({ title: 'Delivery completed', description: order.number, variant: 'success' })
   }, [mergeOrder, push])
