@@ -9,12 +9,6 @@ export function BottomNav(): JSX.Element {
         </span>
         <span>Orders</span>
       </NavLink>
-      <NavLink to="/chat" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-        <span role="img" aria-hidden>
-          💬
-        </span>
-        <span>Chat</span>
-      </NavLink>
       <NavLink to="/profile" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
         <span role="img" aria-hidden>
           👤
