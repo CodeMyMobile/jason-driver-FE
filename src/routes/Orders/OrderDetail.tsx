@@ -16,17 +16,24 @@ export function OrderDetail({ order, onArrive, onComplete }: OrderDetailProps): 
   const [paymentChecked, setPaymentChecked] = useState(false)
   const [signature, setSignature] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [hasArrived, setHasArrived] = useState(order.status === 'ARRIVED' || order.status === 'COMPLETED')
 
   useEffect(() => {
     setIdChecked(false)
     setPaymentChecked(false)
     setSignature(null)
     setSubmitting(false)
+    setHasArrived(order.status === 'ARRIVED' || order.status === 'COMPLETED')
   }, [order.id, order.status])
 
-  const canComplete = idChecked && paymentChecked && Boolean(signature)
-  const showVerification = order.status === 'ARRIVED'
-  const showArriveButton = order.status === 'IN_PROGRESS'
+  const requiresIdCheck = order.requiresIdCheck ?? true
+  const requiresPaymentCheck = order.requiresPaymentCheck ?? true
+
+  const idRequirementMet = !requiresIdCheck || idChecked
+  const paymentRequirementMet = !requiresPaymentCheck || paymentChecked
+  const canComplete = idRequirementMet && paymentRequirementMet && Boolean(signature)
+  const showVerification = (hasArrived || order.status === 'ARRIVED') && order.status !== 'COMPLETED'
+  const showArriveButton = !showVerification && order.status === 'IN_PROGRESS'
 
   const mapsQuery = useMemo(() => encodeURIComponent(order.customer.address), [order.customer.address])
 
@@ -34,16 +41,22 @@ export function OrderDetail({ order, onArrive, onComplete }: OrderDetailProps): 
     setSubmitting(true)
     try {
       await onArrive(order.id)
+      setHasArrived(true)
+    } catch (error) {
+      setHasArrived(order.status === 'ARRIVED' || order.status === 'COMPLETED')
+      console.error(error)
     } finally {
       setSubmitting(false)
     }
   }
 
   async function handleComplete() {
-    if (!signature) return
+    if (!signature || !canComplete) return
     setSubmitting(true)
     try {
       await onComplete(order.id, signature)
+    } catch (error) {
+      console.error(error)
     } finally {
       setSubmitting(false)
     }
@@ -113,6 +126,8 @@ export function OrderDetail({ order, onArrive, onComplete }: OrderDetailProps): 
           <VerifyChecklist
             idChecked={idChecked}
             paymentChecked={paymentChecked}
+            requiresIdCheck={requiresIdCheck}
+            requiresPaymentCheck={requiresPaymentCheck}
             onChange={({ idChecked: id, paymentChecked: payment }) => {
               setIdChecked(id)
               setPaymentChecked(payment)
