@@ -8,22 +8,25 @@ interface HeaderProps {
 }
 
 const statusLabels: Record<DriverStatus, string> = {
-  ONLINE: 'Online',
+  ONLINE: 'Active',
   OFFLINE: 'Offline',
   ON_DELIVERY: 'On Delivery',
 }
 
 export function Header({ trackingActive }: HeaderProps): JSX.Element {
   const { driver } = useAuth()
+  const statusLabel = driver ? statusLabels[driver.status] : 'Offline'
 
   return (
     <header className="app-header">
-      <h1 className="app-title">
-        <Link to="/orders" className="app-title-link">
-          Jason&apos;s Delivery
-        </Link>
-      </h1>
-      <div className="driver-pill">
+      <div className="app-title-group">
+        <h1 className="app-title">
+          <Link to="/orders" className="app-title-link">
+            Jason&apos;s Delivery
+          </Link>
+        </h1>
+      </div>
+      <div className="driver-pill" aria-live="polite">
         <span
           className={classNames(
             'status-dot',
@@ -32,16 +35,15 @@ export function Header({ trackingActive }: HeaderProps): JSX.Element {
             driver?.status === 'OFFLINE' && 'offline',
           )}
           aria-hidden
-        />
-        <div className="driver-pill-text">
-          <span className="driver-pill-name">{driver?.name ?? 'Driver'}</span>
-          <span className="driver-pill-status">{driver ? statusLabels[driver.status] : 'Offline'}</span>
-        </div>
-        <div
-          className={classNames('tracking-indicator', trackingActive && 'active')}
-          title={trackingActive ? 'Location sharing active' : 'Location paused'}
         >
-          📡
+          <span
+            className={classNames('tracking-indicator', trackingActive && 'active')}
+            title={trackingActive ? 'Location sharing active' : 'Location paused'}
+          />
+        </span>
+        <div className="driver-pill-text">
+          <span className="driver-pill-status">{statusLabel}</span>
+          <span className="driver-pill-name">{driver?.name ?? 'Driver'}</span>
         </div>
       </div>
     </header>

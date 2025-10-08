@@ -81,13 +81,9 @@ export function OrderDetail({ order, onArrive, onComplete }: OrderDetailProps): 
           </div>
         </div>
       </div>
-      <div className="order-total">
-        <span>Order Total</span>
-        <span>{formatCurrency(order.total)}</span>
-      </div>
       {order.items.length > 0 ? (
         <div className="items-section">
-          <h4>Items in Order</h4>
+          <h4>Order Items</h4>
           <ul className="order-items">
             {order.items.map((item) => (
               <li key={item.id} className="order-item">
@@ -98,6 +94,10 @@ export function OrderDetail({ order, onArrive, onComplete }: OrderDetailProps): 
           </ul>
         </div>
       ) : null}
+      <div className="order-total">
+        <span>Order Total</span>
+        <span>{formatCurrency(order.total)}</span>
+      </div>
       {showArriveButton ? (
         <button
           type="button"
@@ -105,7 +105,7 @@ export function OrderDetail({ order, onArrive, onComplete }: OrderDetailProps): 
           onClick={handleArrive}
           disabled={submitting}
         >
-          I&apos;ve Arrived at Customer Location →
+          I&apos;VE ARRIVED AT CUSTOMER LOCATION →
         </button>
       ) : null}
       {showVerification ? (
@@ -128,7 +128,7 @@ export function OrderDetail({ order, onArrive, onComplete }: OrderDetailProps): 
             onClick={handleComplete}
             disabled={!canComplete || submitting}
           >
-            Complete Delivery
+            COMPLETE DELIVERY
           </button>
         </div>
       ) : order.status === 'COMPLETED' ? (

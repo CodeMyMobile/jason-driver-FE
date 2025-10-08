@@ -40,20 +40,45 @@ export function OrderCard({ order, onAccept, onSelect, isSelected }: OrderCardPr
           <p>📱 {order.customer.phone}</p>
         </div>
       </div>
+      <div className="address-section compact">
+        <div className="address-icon">📍</div>
+        <div className="address-text">
+          <h4>Delivery Address</h4>
+          <p>{order.customer.address}</p>
+          <div className="address-links">
+            <a
+              href={`https://maps.google.com/?q=${encodeURIComponent(order.customer.address)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Google Maps
+            </a>
+            <a
+              href={`https://waze.com/ul?q=${encodeURIComponent(order.customer.address)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Waze
+            </a>
+          </div>
+        </div>
+      </div>
+      {order.items.length > 0 ? (
+        <div className="items-section compact">
+          <ul className="order-items">
+            {order.items.map((item) => (
+              <li key={item.id} className="order-item">
+                <span className="item-quantity">{item.quantity}x</span>
+                <span className="item-name">{item.name}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
       <div className="order-total">
         <span>Order Total</span>
         <span>{formatCurrency(order.total)}</span>
       </div>
-      {order.items.length > 0 ? (
-        <ul className="order-items">
-          {order.items.map((item) => (
-            <li key={item.id} className="order-item">
-              <span className="item-quantity">{item.quantity}x</span>
-              <span className="item-name">{item.name}</span>
-            </li>
-          ))}
-        </ul>
-      ) : null}
       {isPending && onAccept ? (
         <button
           type="button"
@@ -63,7 +88,7 @@ export function OrderCard({ order, onAccept, onSelect, isSelected }: OrderCardPr
             onAccept(order)
           }}
         >
-          Accept Order →
+          ACCEPT ORDER →
         </button>
       ) : null}
       {statusLabel ? <span className="order-status-tag">{statusLabel}</span> : null}
