@@ -3,20 +3,17 @@
 }
 
 :root {
-  font-family: 'Inter', 'Segoe UI', Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
-  color: #0f172a;
-  background-color: #f1f5f9;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  color-scheme: light;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  min-height: 100%;
 }
 
 body {
   margin: 0;
   min-height: 100vh;
-  background-color: #f1f5f9;
+  color: #1f2937;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 }
 
 a {
@@ -24,23 +21,13 @@ a {
   text-decoration: none;
 }
 
-a:hover {
-  text-decoration: underline;
-}
-
-button,
-input {
-  font-family: inherit;
-}
-
 button {
-  cursor: pointer;
-}
-
-button:disabled {
-  cursor: not-allowed;
+  font: inherit;
 }
 
 #root {
   min-height: 100vh;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
 }

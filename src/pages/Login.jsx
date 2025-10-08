@@ -62,44 +62,47 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="screen login-screen">
-      <section className="card login-card">
-        <header className="card-header">
-          <h1 className="card-title">Driver Login</h1>
-          <p className="card-subtitle">Sign in with your driver credentials to continue.</p>
-        </header>
+    <div className="login-container">
+      <div className="login-content">
+        <div className="login-logo">
+          <div className="logo-icon" aria-hidden>
+            📦
+          </div>
+          <h1>Jason&apos;s Delivery</h1>
+          <p>Driver Portal</p>
+        </div>
 
-        <form className="form" onSubmit={handleSubmit}>
-          <label className="form-field">
-            <span className="form-label">Email</span>
+        <form className="login-form" onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label htmlFor="email">Email Address</label>
             <input
+              id="email"
               type="email"
               name="email"
               autoComplete="email"
               inputMode="email"
               value={email}
               onChange={handleEmailChange}
-              className="form-input"
-              placeholder="driver@email.com"
+              placeholder="driver@example.com"
               disabled={authenticating}
               required
             />
-          </label>
+          </div>
 
-          <label className="form-field">
-            <span className="form-label">Password</span>
+          <div className="form-group">
+            <label htmlFor="password">Password</label>
             <input
+              id="password"
               type="password"
               name="password"
               autoComplete="current-password"
               value={password}
               onChange={handlePasswordChange}
-              className="form-input"
-              placeholder="Enter your password"
+              placeholder="Min. 6 characters"
               disabled={authenticating}
               required
             />
-          </label>
+          </div>
 
           {localError ? (
             <p className="form-error" role="alert">
@@ -107,11 +110,18 @@ export default function LoginPage() {
             </p>
           ) : null}
 
-          <button type="submit" className="form-button" disabled={authenticating}>
-            {authenticating ? 'Signing in…' : 'Sign in'}
+          <button type="submit" className="login-btn" disabled={authenticating}>
+            {authenticating ? 'Signing in…' : 'Sign In'}
           </button>
+
+          <div className="login-footer">
+            <p style={{ fontSize: '12px', color: '#9ca3af', margin: 0 }}>Need help accessing your account?</p>
+            <a className="login-support-link" href="mailto:support@jasonsdelivery.com">
+              Contact Support
+            </a>
+          </div>
         </form>
-      </section>
-    </main>
+      </div>
+    </div>
   )
 }

@@ -823,6 +823,13 @@ button {
   background: rgba(16, 185, 129, 0.12);
 }
 
+.verify-item.disabled {
+  cursor: default;
+  pointer-events: none;
+  background: #f3f4f6;
+  opacity: 0.7;
+}
+
 .verify-checkbox {
   width: 24px;
   height: 24px;
@@ -839,6 +846,13 @@ button {
 .verify-checkbox.checked {
   background: #667eea;
   border-color: #667eea;
+}
+
+.verify-status-text {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: #6b7280;
 }
 
 .signature-wrapper {
