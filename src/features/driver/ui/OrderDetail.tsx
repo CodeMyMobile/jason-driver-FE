@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Order } from '../../types'
-import { formatCurrency, getInitials } from '../../utils/format'
-import { TimerChip } from '../../components/TimerChip'
-import { VerifyChecklist } from '../../components/VerifyChecklist'
-import { SignaturePad } from '../../components/SignaturePad'
+import { Order } from '../../../types'
+import { formatCurrency, getInitials } from '../../../utils/format'
+import { TimerChip } from '../../../components/TimerChip'
+import { VerifyChecklist } from '../../../components/VerifyChecklist'
+import { SignaturePad } from '../../../components/SignaturePad'
 
 interface OrderDetailProps {
   order: Order
@@ -59,15 +59,15 @@ export function OrderDetail({ order, onArrive, onComplete }: OrderDetailProps): 
         <div className="customer-avatar large">{getInitials(order.customer.name)}</div>
         <div className="customer-details">
           <h3>{order.customer.name}</h3>
-          <p>
-            <a href={`tel:${order.customer.phone}`} className="phone-link">
-              📱 {order.customer.phone}
-            </a>
-          </p>
+          <a href={`tel:${order.customer.phone}`} className="phone-link">
+            📱 {order.customer.phone}
+          </a>
         </div>
       </div>
       <div className="address-section">
-        <div className="address-icon">📍</div>
+        <div className="address-icon" aria-hidden>
+          📍
+        </div>
         <div className="address-text">
           <h4>Delivery Address</h4>
           <p>{order.customer.address}</p>
@@ -81,30 +81,25 @@ export function OrderDetail({ order, onArrive, onComplete }: OrderDetailProps): 
           </div>
         </div>
       </div>
-      <div className="order-total">
-        <span>Order Total</span>
-        <span>{formatCurrency(order.total)}</span>
-      </div>
       {order.items.length > 0 ? (
-        <div className="items-section">
-          <h4>Items in Order</h4>
-          <ul className="order-items">
+        <div className="order-items">
+          <h4>Order Items</h4>
+          <ul className="order-items-list">
             {order.items.map((item) => (
               <li key={item.id} className="order-item">
-                <span className="item-quantity">{item.quantity}x</span>
                 <span className="item-name">{item.name}</span>
+                <span className="item-quantity">{item.quantity}x</span>
               </li>
             ))}
           </ul>
         </div>
       ) : null}
+      <div className="order-total">
+        <span>Order Total</span>
+        <span>{formatCurrency(order.total)}</span>
+      </div>
       {showArriveButton ? (
-        <button
-          type="button"
-          className="action-btn primary"
-          onClick={handleArrive}
-          disabled={submitting}
-        >
+        <button type="button" className="action-btn primary" onClick={handleArrive} disabled={submitting}>
           I&apos;ve Arrived at Customer Location →
         </button>
       ) : null}

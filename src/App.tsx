@@ -2,27 +2,22 @@ import { Navigate, Outlet, Route, Routes } from 'react-router-dom'
 import LoginRoute from './routes/Login'
 import OrdersRoute from './routes/Orders/Index'
 import ProfileRoute from './routes/Profile'
-import { ProtectedRoute } from './components/ProtectedRoute'
-import { Header } from './components/Header'
-import { BottomNav } from './components/BottomNav'
+import { ProtectedRoute } from './components/ProtectedRoute.tsx'
 import { useAuth } from './hooks/useAuth'
 import { useLocationTracking } from './hooks/useLocationTracking'
 import { OrdersProvider } from './hooks/useOrders'
+import { DriverLayout } from './features/driver/ui/DriverLayout'
 
 function AppShell(): JSX.Element {
   const { driver } = useAuth()
   const trackingActive = useLocationTracking({ isActive: driver?.status !== 'OFFLINE' })
 
   return (
-    <div className="app-container">
-      <Header trackingActive={trackingActive} />
-      <main className="app-main">
-        <OrdersProvider>
-          <Outlet context={{ trackingActive }} />
-        </OrdersProvider>
-      </main>
-      <BottomNav />
-    </div>
+    <DriverLayout trackingActive={trackingActive}>
+      <OrdersProvider>
+        <Outlet context={{ trackingActive }} />
+      </OrdersProvider>
+    </DriverLayout>
   )
 }
 

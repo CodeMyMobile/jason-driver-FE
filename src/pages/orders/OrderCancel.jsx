@@ -6,7 +6,7 @@ import { fetchOrderById, updateOrder } from '../../services/orderService'
 import './Orders.css'
 
 export default function OrderCancel() {
-  const { status = 'progress', orderId } = useParams()
+  const { orderId } = useParams()
   const location = useLocation()
   const navigate = useNavigate()
   const { token } = useAuth()

@@ -1,7 +1,8 @@
-import { Order } from '../../types'
-import { formatCurrency, getInitials } from '../../utils/format'
-import { TimerChip } from '../../components/TimerChip'
-import { classNames } from '../../utils/classNames'
+import { useMemo } from 'react'
+import { Order } from '../../../types'
+import { formatCurrency, getInitials } from '../../../utils/format'
+import { TimerChip } from '../../../components/TimerChip'
+import { classNames } from '../../../utils/classNames'
 
 interface OrderCardProps {
   order: Order
@@ -14,6 +15,7 @@ export function OrderCard({ order, onAccept, onSelect, isSelected }: OrderCardPr
   const isPending = order.status === 'NEW'
   const statusLabel = order.status === 'COMPLETED' ? 'Completed' : undefined
   const isSelectable = Boolean(onSelect)
+  const mapsQuery = useMemo(() => encodeURIComponent(order.customer.address), [order.customer.address])
 
   return (
     <article
@@ -37,23 +39,45 @@ export function OrderCard({ order, onAccept, onSelect, isSelected }: OrderCardPr
         <div className="customer-avatar">{getInitials(order.customer.name)}</div>
         <div className="customer-details">
           <h3>{order.customer.name}</h3>
-          <p>📱 {order.customer.phone}</p>
+          <a href={`tel:${order.customer.phone}`} className="phone-link">
+            📱 {order.customer.phone}
+          </a>
         </div>
       </div>
+      <div className="address-section">
+        <div className="address-icon" aria-hidden>
+          📍
+        </div>
+        <div className="address-text">
+          <h4>Delivery Address</h4>
+          <p>{order.customer.address}</p>
+          <div className="address-links">
+            <a href={`https://maps.google.com/?q=${mapsQuery}`} target="_blank" rel="noopener noreferrer">
+              Google Maps
+            </a>
+            <a href={`https://waze.com/ul?q=${mapsQuery}`} target="_blank" rel="noopener noreferrer">
+              Waze
+            </a>
+          </div>
+        </div>
+      </div>
+      {order.items.length > 0 ? (
+        <div className="order-items">
+          <h4>Order Items</h4>
+          <ul className="order-items-list">
+            {order.items.map((item) => (
+              <li key={item.id} className="order-item">
+                <span className="item-name">{item.name}</span>
+                <span className="item-quantity">{item.quantity}x</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
       <div className="order-total">
         <span>Order Total</span>
         <span>{formatCurrency(order.total)}</span>
       </div>
-      {order.items.length > 0 ? (
-        <ul className="order-items">
-          {order.items.map((item) => (
-            <li key={item.id} className="order-item">
-              <span className="item-quantity">{item.quantity}x</span>
-              <span className="item-name">{item.name}</span>
-            </li>
-          ))}
-        </ul>
-      ) : null}
       {isPending && onAccept ? (
         <button
           type="button"
