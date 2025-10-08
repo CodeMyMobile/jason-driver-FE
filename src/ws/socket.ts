@@ -1,4 +1,3 @@
-import { mockMessages, mockOrders } from '../api/mockData'
 import { SocketEvent } from '../types'
 
 export type SocketHandler<T = unknown> = (payload: T) => void
@@ -38,7 +37,7 @@ export class SocketClient {
         this.socket = undefined
       })
     } catch (error) {
-      console.warn('Falling back to mock socket', error)
+      console.warn('WebSocket connection failed', error)
     }
   }
 
@@ -77,44 +76,7 @@ export class SocketClient {
   }
 }
 
-export class MockSocket extends SocketClient {
-  private timer?: number
-
-  connect(): void {
-    this.timer = window.setInterval(() => {
-      const newest = mockOrders.find((order) => order.status === 'NEW')
-      if (newest) {
-        this.dispatch('ORDER_UPDATED', newest)
-      }
-      const lastMessage = mockMessages[mockMessages.length - 1]
-      this.dispatch('CHAT_MESSAGE', lastMessage)
-    }, 15000)
-  }
-
-  disconnect(): void {
-    if (this.timer) {
-      window.clearInterval(this.timer)
-    }
-    super.disconnect()
-  }
-
-  emit<T>(type: string, payload: T): void {
-    if (type === 'CHAT_MESSAGE') {
-      this.dispatch(type, payload)
-    }
-  }
-
-  private dispatch<T>(type: string, payload: T): void {
-    this.listeners
-      .filter((listener) => listener.type === type)
-      .forEach((listener) => listener.handler(payload))
-  }
-}
-
 export function createSocket(): SocketClient {
   const wsUrl = import.meta.env.VITE_WS_URL
-  if (wsUrl) {
-    return new SocketClient(wsUrl)
-  }
-  return new MockSocket()
+  return new SocketClient(wsUrl)
 }

@@ -25,7 +25,7 @@ export function VerifyChecklist({ idChecked, paymentChecked, onChange }: VerifyC
         className={`verify-item ${paymentChecked ? 'checked' : ''}`}
         onClick={() => onChange({ idChecked, paymentChecked: !paymentChecked })}
       >
-        <span>Payment Verified</span>
+        <span>Credit Card Verified</span>
         <span className={`verify-checkbox ${paymentChecked ? 'checked' : ''}`} aria-hidden>
           {paymentChecked ? '✓' : ''}
         </span>
