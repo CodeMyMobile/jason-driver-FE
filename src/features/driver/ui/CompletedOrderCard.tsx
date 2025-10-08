@@ -1,7 +1,7 @@
-import { Order } from '../../types'
+import { Order } from '../../../types'
 import { OrderDetail } from './OrderDetail'
-import { classNames } from '../../utils/classNames'
-import { formatTimeOfDay, getInitials } from '../../utils/format'
+import { classNames } from '../../../utils/classNames'
+import { formatTimeOfDay, getInitials } from '../../../utils/format'
 
 interface CompletedOrderCardProps {
   order: Order
@@ -33,7 +33,7 @@ export function CompletedOrderCard({
           <span className="order-number">Order #{order.number}</span>
           <div className="summary-meta">
             <span className="order-status-tag">Completed</span>
-            <span className="summary-caret" aria-hidden="true">
+            <span className="summary-caret" aria-hidden>
               {expanded ? '▴' : '▾'}
             </span>
           </div>
