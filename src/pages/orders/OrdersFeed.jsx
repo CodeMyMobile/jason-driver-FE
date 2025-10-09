@@ -4,7 +4,26 @@ import { useAuth } from '../../context/AuthContext'
 import { fetchOrders } from '../../services/orderService'
 import './Orders.css'
 
-const ACTIVE_STATUSES = ['Assigned', 'Accepted', 'In Progress']
+const ORDER_VIEWS = [
+  {
+    id: 'assigned',
+    label: 'Assigned',
+    statuses: ['Assigned'],
+    summaryLabel: 'orders ready for pickup',
+  },
+  {
+    id: 'accepted',
+    label: 'Accepted',
+    statuses: ['Accepted'],
+    summaryLabel: 'orders preparing for you',
+  },
+  {
+    id: 'progress',
+    label: 'Out for delivery',
+    statuses: ['In Progress', 'Out for delivery'],
+    summaryLabel: 'orders on the move',
+  },
+]
 
 function formatName(owner) {
   if (!owner) {
@@ -47,7 +66,7 @@ function resolveStatusKey(status) {
     return 'accepted'
   }
 
-  if (normalized === 'in progress') {
+  if (normalized === 'in progress' || normalized === 'out for delivery') {
     return 'progress'
   }
 
@@ -60,7 +79,7 @@ export default function OrdersFeed() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [lastUpdated, setLastUpdated] = useState(null)
-  const [view, setView] = useState('active')
+  const [view, setView] = useState(ORDER_VIEWS[0].id)
 
   const loadOrders = useCallback(async () => {
     if (!token) {
@@ -86,18 +105,24 @@ export default function OrdersFeed() {
     loadOrders()
   }, [loadOrders])
 
-  const activeOrders = useMemo(
-    () => orders.filter((order) => ACTIVE_STATUSES.includes(order.status)),
-    [orders],
+  const viewConfig = useMemo(
+    () => ORDER_VIEWS.find((entry) => entry.id === view) ?? ORDER_VIEWS[0],
+    [view],
   )
 
-  const archivedOrders = useMemo(
-    () => orders.filter((order) => !ACTIVE_STATUSES.includes(order.status)),
-    [orders],
-  )
+  const displayedOrders = useMemo(() => {
+    const statusSet = new Set(viewConfig.statuses.map((status) => status.toLowerCase()))
 
-  const displayedOrders = view === 'active' ? activeOrders : archivedOrders
-  const summaryLabel = view === 'active' ? 'orders waiting on you' : 'orders archived'
+    return orders.filter((order) => {
+      if (!order.status) {
+        return false
+      }
+
+      return statusSet.has(order.status.toLowerCase())
+    })
+  }, [orders, viewConfig])
+
+  const summaryLabel = viewConfig.summaryLabel ?? 'orders waiting on you'
 
   if (loading && orders.length === 0) {
     return (
@@ -128,25 +153,21 @@ export default function OrdersFeed() {
           </button>
         </header>
 
-        <div className="orders-tabs" role="tablist" aria-label="Order view">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={view === 'active'}
-            className={['orders-tab', view === 'active' ? 'active' : ''].filter(Boolean).join(' ')}
-            onClick={() => setView('active')}
-          >
-            Active
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={view === 'archived'}
-            className={['orders-tab', view === 'archived' ? 'active' : ''].filter(Boolean).join(' ')}
-            onClick={() => setView('archived')}
-          >
-            Archived
-          </button>
+        <div className="orders-tabs" role="tablist" aria-label="Order status">
+          {ORDER_VIEWS.map((option) => (
+            <button
+              key={option.id}
+              type="button"
+              role="tab"
+              aria-selected={view === option.id}
+              className={['orders-tab', view === option.id ? 'active' : '']
+                .filter(Boolean)
+                .join(' ')}
+              onClick={() => setView(option.id)}
+            >
+              {option.label}
+            </button>
+          ))}
         </div>
 
         <div className="orders-summary">
@@ -170,7 +191,7 @@ export default function OrdersFeed() {
         <div className="orders-list" role="list">
           {displayedOrders.length === 0 ? (
             <div className="orders-empty" role="status">
-              <p>No orders waiting on you.</p>
+              <p>No {viewConfig.label.toLowerCase()} orders yet.</p>
             </div>
           ) : (
             displayedOrders.map((order) => {
