@@ -1,6 +1,6 @@
 import axios from 'axios'
 
-const baseURL = import.meta.env.VITE_CMS_BASE_URL ?? 'http://localhost:4000'
+const baseURL = import.meta.env.VITE_CMS_BASE_URL ?? 'http://127.0.0.1:4000'
 
 export const apiClient = axios.create({
   baseURL,
@@ -18,12 +18,3 @@ apiClient.interceptors.response.use(
     return Promise.reject(error)
   },
 )
-
-export async function safeRequest<T>(request: () => Promise<T>, fallback: () => Promise<T>): Promise<T> {
-  try {
-    return await request()
-  } catch (error) {
-    console.warn('Falling back to local mock data due to request error', error)
-    return fallback()
-  }
-}

@@ -1,66 +1,24 @@
-import { apiClient, safeRequest } from './client'
-import { mockOrders } from './mockData'
+import { apiClient } from './client'
 import { Order } from '../types'
 
 export async function getOrders(): Promise<Order[]> {
-  return safeRequest(
-    async () => {
-      const response = await apiClient.get<Order[]>('/orders')
-      return response.data
-    },
-    async () => mockOrders,
-  )
+  const response = await apiClient.get<Order[]>('/orders')
+  return response.data
 }
 
 export async function acceptOrder(orderId: string): Promise<Order> {
-  return safeRequest(
-    async () => {
-      const response = await apiClient.post<Order>(`/orders/${orderId}/accept`)
-      return response.data
-    },
-    async () => {
-      const existing = mockOrders.find((order) => order.id === orderId)
-      if (!existing) {
-        throw new Error('Order not found')
-      }
-      existing.status = 'IN_PROGRESS'
-      return existing
-    },
-  )
+  const response = await apiClient.post<Order>(`/orders/${orderId}/accept`)
+  return response.data
 }
 
 export async function arriveOrder(orderId: string): Promise<Order> {
-  return safeRequest(
-    async () => {
-      const response = await apiClient.post<Order>(`/orders/${orderId}/arrive`)
-      return response.data
-    },
-    async () => {
-      const existing = mockOrders.find((order) => order.id === orderId)
-      if (!existing) {
-        throw new Error('Order not found')
-      }
-      existing.status = 'ARRIVED'
-      return existing
-    },
-  )
+  const response = await apiClient.post<Order>(`/orders/${orderId}/arrive`)
+  return response.data
 }
 
 export async function completeOrder(orderId: string, signature?: string): Promise<Order> {
-  return safeRequest(
-    async () => {
-      const response = await apiClient.post<Order>(`/orders/${orderId}/complete`, { signature })
-      return response.data
-    },
-    async () => {
-      const existing = mockOrders.find((order) => order.id === orderId)
-      if (!existing) {
-        throw new Error('Order not found')
-      }
-      existing.status = 'COMPLETED'
-      return existing
-    },
-  )
+  const response = await apiClient.post<Order>(`/orders/${orderId}/complete`, { signature })
+  return response.data
 }
 
 export function getElapsedMinutes(order: Order): number {
