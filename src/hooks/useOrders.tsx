@@ -36,7 +36,13 @@ export function OrdersProvider({ children }: PropsWithChildren): JSX.Element {
     setOrders((current) => {
       const existing = current.find((order) => order.id === normalized.id)
       if (existing) {
-        return current.map((order) => (order.id === normalized.id ? { ...existing, ...normalized } : order))
+        const merged = { ...existing }
+        for (const [key, value] of Object.entries(normalized) as [keyof Order, Order[keyof Order]][]) {
+          if (value !== undefined && value !== null) {
+            merged[key] = value
+          }
+        }
+        return current.map((order) => (order.id === normalized.id ? merged : order))
       }
       return [normalized, ...current]
     })
