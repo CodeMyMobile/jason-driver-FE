@@ -4,26 +4,7 @@ import { useAuth } from '../../context/AuthContext'
 import { fetchOrders } from '../../services/orderService'
 import './Orders.css'
 
-const SECTION_CONFIG = [
-  {
-    key: 'assigned',
-    status: 'Assigned',
-    title: 'Assigned Orders',
-    description: 'Orders that are ready for you to accept.',
-  },
-  {
-    key: 'accepted',
-    status: 'Accepted',
-    title: 'Accepted Orders',
-    description: 'Orders that are waiting to start delivery.',
-  },
-  {
-    key: 'progress',
-    status: 'In Progress',
-    title: 'Out for Delivery',
-    description: 'Orders that are currently on the way.',
-  },
-]
+const ACTIVE_STATUSES = ['Assigned', 'Accepted', 'In Progress']
 
 function formatName(owner) {
   if (!owner) {
@@ -51,11 +32,26 @@ function formatAddress(address) {
   return parts.join(', ') || 'No address on file'
 }
 
-function groupOrders(orders) {
-  return SECTION_CONFIG.map((section) => ({
-    ...section,
-    items: orders.filter((order) => order.status === section.status),
-  }))
+function resolveStatusKey(status) {
+  if (!status) {
+    return 'assigned'
+  }
+
+  const normalized = status.toLowerCase()
+
+  if (normalized === 'assigned') {
+    return 'assigned'
+  }
+
+  if (normalized === 'accepted') {
+    return 'accepted'
+  }
+
+  if (normalized === 'in progress') {
+    return 'progress'
+  }
+
+  return 'assigned'
 }
 
 export default function OrdersFeed() {
@@ -64,6 +60,7 @@ export default function OrdersFeed() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [lastUpdated, setLastUpdated] = useState(null)
+  const [view, setView] = useState('active')
 
   const loadOrders = useCallback(async () => {
     if (!token) {
@@ -89,77 +86,115 @@ export default function OrdersFeed() {
     loadOrders()
   }, [loadOrders])
 
-  const sections = useMemo(() => groupOrders(orders), [orders])
+  const activeOrders = useMemo(
+    () => orders.filter((order) => ACTIVE_STATUSES.includes(order.status)),
+    [orders],
+  )
+
+  const archivedOrders = useMemo(
+    () => orders.filter((order) => !ACTIVE_STATUSES.includes(order.status)),
+    [orders],
+  )
+
+  const displayedOrders = view === 'active' ? activeOrders : archivedOrders
+  const summaryLabel = view === 'active' ? 'orders waiting on you' : 'orders archived'
 
   if (loading && orders.length === 0) {
     return (
-      <div className="screen">
+      <div className="orders-loading">
         <div className="spinner" aria-label="Loading orders" />
       </div>
     )
   }
 
   return (
-    <div className="orders-screen">
-      <div className="orders-toolbar">
-        <div>
-          <h1>Orders</h1>
+    <div className="orders-surface">
+      <section className="orders-card" aria-labelledby="orders-title">
+        <header className="orders-header">
+          <div>
+            <h1 className="orders-title" id="orders-title">
+              Orders
+            </h1>
+            <p className="orders-subtitle">Stay close to the action and refresh as you go.</p>
+          </div>
+          <button
+            type="button"
+            className="icon-button"
+            onClick={loadOrders}
+            disabled={loading}
+            aria-label="Refresh orders"
+          >
+            <span aria-hidden="true" className="refresh-icon" />
+          </button>
+        </header>
+
+        <div className="orders-tabs" role="tablist" aria-label="Order view">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={view === 'active'}
+            className={['orders-tab', view === 'active' ? 'active' : ''].filter(Boolean).join(' ')}
+            onClick={() => setView('active')}
+          >
+            Active
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={view === 'archived'}
+            className={['orders-tab', view === 'archived' ? 'active' : ''].filter(Boolean).join(' ')}
+            onClick={() => setView('archived')}
+          >
+            Archived
+          </button>
+        </div>
+
+        <div className="orders-summary">
+          <div>
+            <span className="summary-count">{displayedOrders.length}</span>
+            <span className="summary-label">{summaryLabel}</span>
+          </div>
           {lastUpdated ? (
-            <p className="order-card-meta">
+            <p className="summary-meta">
               Updated {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </p>
           ) : null}
         </div>
-        <div className="orders-actions">
-          <button type="button" onClick={loadOrders} disabled={loading}>
-            {loading ? 'Refreshing…' : 'Refresh'}
-          </button>
-        </div>
-      </div>
 
-      {error ? (
-        <div className="form-error" role="alert">
-          {error}
-        </div>
-      ) : null}
+        {error ? (
+          <div className="form-error" role="alert">
+            {error}
+          </div>
+        ) : null}
 
-      <div className="orders-list">
-        {sections.map((section) => (
-          <section className="order-section" key={section.key} aria-label={section.title}>
-            <div className="order-section-header">
-              <div>
-                <h2 className="order-section-title">{section.title}</h2>
-                <p className="order-card-meta">{section.description}</p>
-              </div>
-              <span className="order-section-count">{section.items.length}</span>
+        <div className="orders-list" role="list">
+          {displayedOrders.length === 0 ? (
+            <div className="orders-empty" role="status">
+              <p>No orders waiting on you.</p>
             </div>
-            <div className="order-card-list">
-              {section.items.length === 0 ? (
-                <div className="order-card empty">
-                  <p>No orders in this stage.</p>
-                </div>
-              ) : (
-                section.items.map((order) => (
-                  <Link
-                    key={order._id}
-                    className="order-card"
-                    to={`/orders/${section.key}/${order._id}`}
-                    state={{ order }}
-                  >
-                    <div className="order-card-content">
-                      <p className="order-card-title">{formatName(order.owner)}</p>
-                      <p className="order-card-meta">{formatAddress(order.address)}</p>
-                    </div>
-                    <span className="order-card-chevron" aria-hidden="true">
-                      ➔
-                    </span>
-                  </Link>
-                ))
-              )}
-            </div>
-          </section>
-        ))}
-      </div>
+          ) : (
+            displayedOrders.map((order) => {
+              const sectionKey = resolveStatusKey(order.status)
+
+              return (
+                <Link
+                  key={order._id}
+                  className="order-item"
+                  to={`/orders/${sectionKey}/${order._id}`}
+                  state={{ order }}
+                >
+                  <div className="order-item-body">
+                    <p className="order-item-title">{formatName(order.owner)}</p>
+                    <p className="order-item-meta">{formatAddress(order.address)}</p>
+                  </div>
+                  <span className="order-item-status">{order.status}</span>
+                  <span className="order-item-chevron" aria-hidden="true" />
+                </Link>
+              )
+            })
+          )}
+        </div>
+      </section>
     </div>
   )
 }
