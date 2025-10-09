@@ -25,21 +25,24 @@ export default function OrdersRoute(): JSX.Element {
   const [completedVisibleCount, setCompletedVisibleCount] = useState(10)
 
   const segmented = useMemo(() => {
+    const isAssignedToDriver = (order: Order) => {
+      if (!driver) return true
+      if (order.assignedDriverId == null) return false
+      return String(order.assignedDriverId) === String(driver.id)
+    }
+
     const pending = orders.filter((order) => order.status === 'NEW')
     const active = orders.filter((order) => {
       if (order.status !== 'IN_PROGRESS' && order.status !== 'ARRIVED') {
         return false
       }
 
-      if (!driver) return true
-
-      return order.assignedDriverId === driver.id
+      return isAssignedToDriver(order)
     })
     const completed = orders
       .filter((order) => {
         if (order.status !== 'COMPLETED') return false
-        if (!driver) return true
-        return order.assignedDriverId === driver.id
+        return isAssignedToDriver(order)
       })
       .sort(
         (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),

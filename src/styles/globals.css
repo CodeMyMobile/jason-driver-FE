@@ -83,46 +83,6 @@ button {
   border-radius: 999px;
 }
 
-.driver-shell__status-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: #9ca3af;
-  position: relative;
-}
-
-.driver-shell__status-dot::after {
-  content: '';
-  position: absolute;
-  inset: -4px;
-  border-radius: inherit;
-  border: 1px solid rgba(255, 255, 255, 0.5);
-}
-
-.driver-shell__status-dot--online {
-  background: #4ade80;
-  animation: pulse 2s infinite;
-}
-
-.driver-shell__status-dot--ondelivery {
-  background: #facc15;
-  animation: pulse 2s infinite;
-}
-
-.driver-shell__status-dot--offline {
-  background: #ef4444;
-}
-
-@keyframes pulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
-  }
-}
-
 .driver-shell__status-text {
   display: flex;
   flex-direction: column;
@@ -132,11 +92,6 @@ button {
 .driver-shell__status-name {
   font-weight: 600;
   font-size: 13px;
-}
-
-.driver-shell__status-state {
-  font-size: 11px;
-  opacity: 0.9;
 }
 
 .driver-shell__tracking-chip {
