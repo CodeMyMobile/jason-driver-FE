@@ -14,9 +14,9 @@ function AppShell(): JSX.Element {
   const trackingActive = useLocationTracking({ isActive: driver?.status !== 'OFFLINE' })
 
   return (
-    <div className="app-container">
+    <div className="driver-shell">
       <Header trackingActive={trackingActive} />
-      <main className="app-main">
+      <main className="driver-shell__main">
         <OrdersProvider>
           <Outlet context={{ trackingActive }} />
         </OrdersProvider>
