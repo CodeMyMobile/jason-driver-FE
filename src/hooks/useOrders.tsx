@@ -25,6 +25,20 @@ interface OrdersContextValue {
 
 const OrdersContext = createContext<OrdersContextValue | undefined>(undefined)
 
+function mergeOrderData(existing: Order | undefined, incoming: Order): Order {
+  if (!existing) {
+    return { ...incoming }
+  }
+
+  const merged = { ...existing }
+  for (const [key, value] of Object.entries(incoming) as [keyof Order, Order[keyof Order]][]) {
+    if (value !== undefined && value !== null) {
+      merged[key] = value
+    }
+  }
+  return merged
+}
+
 export function OrdersProvider({ children }: PropsWithChildren): JSX.Element {
   const [orders, setOrders] = useState<Order[]>([])
   const [isFetching, setIsFetching] = useState(false)
@@ -36,7 +50,8 @@ export function OrdersProvider({ children }: PropsWithChildren): JSX.Element {
     setOrders((current) => {
       const existing = current.find((order) => order.id === normalized.id)
       if (existing) {
-        return current.map((order) => (order.id === normalized.id ? { ...existing, ...normalized } : order))
+        const merged = mergeOrderData(existing, normalized)
+        return current.map((order) => (order.id === normalized.id ? merged : order))
       }
       return [normalized, ...current]
     })
@@ -46,7 +61,10 @@ export function OrdersProvider({ children }: PropsWithChildren): JSX.Element {
     setIsFetching(true)
     try {
       const data = await getOrders()
-      setOrders(data.map((order) => ({ ...order })))
+      setOrders((current) => {
+        const currentById = new Map(current.map((order) => [order.id, order]))
+        return data.map((order) => mergeOrderData(currentById.get(order.id), order))
+      })
     } finally {
       setIsFetching(false)
     }

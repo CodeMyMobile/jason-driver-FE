@@ -1,6 +1,14 @@
 import axios from 'axios'
 
-const baseURL = import.meta.env.VITE_CMS_BASE_URL ?? 'http://localhost:4000'
+function sanitizeBaseUrl(raw?: string): string {
+  if (!raw) return 'https://api.jasonsliquor.com'
+  const trimmed = raw.trim()
+  if (!trimmed) return 'https://api.jasonsliquor.com'
+  return trimmed.replace(/\/+$/, '')
+}
+
+const sanitized = sanitizeBaseUrl(import.meta.env.VITE_API_BASE_URL)
+const baseURL = sanitized.endsWith('/api') ? sanitized : `${sanitized}/api`
 
 export const apiClient = axios.create({
   baseURL,
@@ -18,12 +26,3 @@ apiClient.interceptors.response.use(
     return Promise.reject(error)
   },
 )
-
-export async function safeRequest<T>(request: () => Promise<T>, fallback: () => Promise<T>): Promise<T> {
-  try {
-    return await request()
-  } catch (error) {
-    console.warn('Falling back to local mock data due to request error', error)
-    return fallback()
-  }
-}

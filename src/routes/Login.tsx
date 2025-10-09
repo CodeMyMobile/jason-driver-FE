@@ -31,17 +31,17 @@ export default function LoginRoute(): JSX.Element {
   }
 
   return (
-    <div className="login-container">
-      <div className="login-content">
-        <div className="login-logo">
-          <div className="logo-icon" aria-hidden>
+    <div className="driver-login">
+      <div className="driver-login__panel">
+        <div className="driver-login__brand">
+          <div className="driver-login__logo" aria-hidden>
             📦
           </div>
           <h1>Jason&apos;s Delivery</h1>
           <p>Driver Portal</p>
         </div>
-        <form className="login-form" onSubmit={handleSubmit}>
-          <div className="form-group">
+        <form className="driver-login__form" onSubmit={handleSubmit}>
+          <div className="driver-login__field">
             <label htmlFor="email">Email Address</label>
             <input
               id="email"
@@ -53,7 +53,7 @@ export default function LoginRoute(): JSX.Element {
               required
             />
           </div>
-          <div className="form-group">
+          <div className="driver-login__field">
             <label htmlFor="password">Password</label>
             <input
               id="password"
@@ -66,12 +66,12 @@ export default function LoginRoute(): JSX.Element {
               required
             />
           </div>
-          <button type="submit" className="login-btn" disabled={loading}>
+          <button type="submit" className="driver-login__submit" disabled={loading}>
             {loading ? 'Signing In…' : 'Sign In'}
           </button>
-          <div className="login-footer">
-            <p className="demo-note">Demo: Use any email + 6+ char password</p>
-            <button type="button" className="demo-button" onClick={fillDemo}>
+          <div className="driver-login__helper">
+            <p>Demo: Use any email + 6+ char password</p>
+            <button type="button" onClick={fillDemo}>
               Use Demo Credentials
             </button>
           </div>

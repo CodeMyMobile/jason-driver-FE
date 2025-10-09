@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useOrders } from '../../hooks/useOrders'
-import { Tabs } from '../../components/Tabs'
+import { OrdersTabs } from '../../features/driver/ui/components/OrdersTabs'
 import { OrderCard } from './OrderCard'
 import { OrderDetail } from './OrderDetail'
 import { CompletedOrderCard } from './CompletedOrderCard'
@@ -25,21 +25,26 @@ export default function OrdersRoute(): JSX.Element {
   const [completedVisibleCount, setCompletedVisibleCount] = useState(10)
 
   const segmented = useMemo(() => {
+    const isAssignedToDriver = (order: Order) => {
+      if (!driver) return true
+      if (order.assignedDriverId == null || String(order.assignedDriverId).trim() === '') {
+        return true
+      }
+      return String(order.assignedDriverId) === String(driver.id)
+    }
+
     const pending = orders.filter((order) => order.status === 'NEW')
     const active = orders.filter((order) => {
       if (order.status !== 'IN_PROGRESS' && order.status !== 'ARRIVED') {
         return false
       }
 
-      if (!driver) return true
-
-      return order.assignedDriverId === driver.id
+      return isAssignedToDriver(order)
     })
     const completed = orders
       .filter((order) => {
         if (order.status !== 'COMPLETED') return false
-        if (!driver) return true
-        return order.assignedDriverId === driver.id
+        return isAssignedToDriver(order)
       })
       .sort(
         (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
@@ -94,73 +99,73 @@ export default function OrdersRoute(): JSX.Element {
   }, [segmented.completed.length])
 
   return (
-    <div className="orders-page">
-      <Tabs
+    <div className="driver-orders">
+      <OrdersTabs
         tabs={tabConfig.map((tab) => ({ ...tab, badge: tab.id === 'pending' ? segmented.pending.length : undefined }))}
         activeId={activeTab}
         onChange={(id) => setActiveTab(id as TabId)}
       />
-      {activeTab === 'pending' ? (
-        <div className="pending-orders">
-          <div className="orders-list pending-list">
+      <div className="driver-orders__content">
+        {activeTab === 'pending' ? (
+          <section className="driver-orders__section" aria-label="Pending orders">
             {listForTab.length === 0 ? (
-              <p className="empty-state">No orders in this state.</p>
+              <p className="driver-orders__empty">No orders in this state.</p>
             ) : (
               listForTab.map((order) => (
                 <OrderCard key={order.id} order={order} onAccept={handleAccept} />
               ))
             )}
-          </div>
-        </div>
-      ) : activeTab === 'active' ? (
-        <div className="active-orders">
-          {listForTab.length === 0 ? (
-            <p className="empty-state">No orders in this state.</p>
-          ) : (
-            listForTab.map((order) => (
-              <OrderDetail key={order.id} order={order} onArrive={handleArrive} onComplete={handleComplete} />
-            ))
-          )}
-        </div>
-      ) : (
-        <div className="completed-orders">
-          {segmented.completed.length === 0 ? (
-            <p className="empty-state">No orders in this state.</p>
-          ) : (
-            <>
-              <div className="completed-orders-list">
-                {visibleCompletedOrders.map((order) => (
-                  <CompletedOrderCard
-                    key={order.id}
-                    order={order}
-                    expanded={expandedCompletedId === order.id}
-                    onToggle={(next) =>
-                      setExpandedCompletedId((current) =>
-                        current === next.id ? undefined : next.id,
+          </section>
+        ) : activeTab === 'active' ? (
+          <section className="driver-orders__section" aria-label="Active orders">
+            {listForTab.length === 0 ? (
+              <p className="driver-orders__empty">No orders in this state.</p>
+            ) : (
+              listForTab.map((order) => (
+                <OrderDetail key={order.id} order={order} onArrive={handleArrive} onComplete={handleComplete} />
+              ))
+            )}
+          </section>
+        ) : (
+          <section className="driver-orders__section" aria-label="Completed orders">
+            {segmented.completed.length === 0 ? (
+              <p className="driver-orders__empty">No orders in this state.</p>
+            ) : (
+              <>
+                <div className="driver-orders__completed-list">
+                  {visibleCompletedOrders.map((order) => (
+                    <CompletedOrderCard
+                      key={order.id}
+                      order={order}
+                      expanded={expandedCompletedId === order.id}
+                      onToggle={(next) =>
+                        setExpandedCompletedId((current) =>
+                          current === next.id ? undefined : next.id,
+                        )
+                      }
+                      onArrive={handleArrive}
+                      onComplete={handleComplete}
+                    />
+                  ))}
+                </div>
+                {canShowMoreCompleted ? (
+                  <button
+                    type="button"
+                    className="driver-orders__see-more"
+                    onClick={() =>
+                      setCompletedVisibleCount((current) =>
+                        Math.min(current + 10, segmented.completed.length),
                       )
                     }
-                    onArrive={handleArrive}
-                    onComplete={handleComplete}
-                  />
-                ))}
-              </div>
-              {canShowMoreCompleted ? (
-                <button
-                  type="button"
-                  className="see-more-button"
-                  onClick={() =>
-                    setCompletedVisibleCount((current) =>
-                      Math.min(current + 10, segmented.completed.length),
-                    )
-                  }
-                >
-                  See more
-                </button>
-              ) : null}
-            </>
-          )}
-        </div>
-      )}
+                  >
+                    See more
+                  </button>
+                ) : null}
+              </>
+            )}
+          </section>
+        )}
+      </div>
     </div>
   )
 }

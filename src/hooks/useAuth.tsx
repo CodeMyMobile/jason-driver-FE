@@ -5,11 +5,13 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react'
-import { getCurrentDriver, login as loginApi, updateDriverStatus } from '../api/auth'
+import { AxiosError } from 'axios'
+import { getCurrentDriver, login as loginApi } from '../api/auth'
 import { apiClient } from '../api/client'
-import { Driver, DriverStatus } from '../types'
+import { Driver } from '../types'
 
 interface AuthContextValue {
   driver?: Driver
@@ -17,7 +19,6 @@ interface AuthContextValue {
   loading: boolean
   login: (email: string, password: string) => Promise<void>
   logout: () => void
-  setStatus: (status: DriverStatus) => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
@@ -29,6 +30,7 @@ export function AuthProvider({ children }: PropsWithChildren): JSX.Element {
   const [driver, setDriver] = useState<Driver | undefined>(undefined)
   const [token, setToken] = useState<string | undefined>(undefined)
   const [loading, setLoading] = useState(true)
+  const lastBootstrappedTokenRef = useRef<string | undefined>(undefined)
 
   useEffect(() => {
     const storedToken = sessionStorage.getItem(TOKEN_KEY) ?? undefined
@@ -73,6 +75,12 @@ export function AuthProvider({ children }: PropsWithChildren): JSX.Element {
     sessionStorage.removeItem(TOKEN_KEY)
     sessionStorage.removeItem(DRIVER_KEY)
     delete apiClient.defaults.headers.common.Authorization
+    lastBootstrappedTokenRef.current = undefined
+  }, [])
+
+  const isUnauthorizedError = useCallback((error: unknown) => {
+    const status = (error as AxiosError | undefined)?.response?.status
+    return status === 401 || status === 403
   }, [])
 
   useEffect(() => {
@@ -81,29 +89,29 @@ export function AuthProvider({ children }: PropsWithChildren): JSX.Element {
         setLoading(false)
         return
       }
+      if (lastBootstrappedTokenRef.current === token) {
+        return
+      }
+      lastBootstrappedTokenRef.current = token
       try {
         const profile = await getCurrentDriver()
         persist(profile, token)
         apiClient.defaults.headers.common.Authorization = `Bearer ${token}`
       } catch (error) {
         console.warn('Failed to restore session', error)
-        logout()
+        if (isUnauthorizedError(error)) {
+          logout()
+        }
       } finally {
         setLoading(false)
       }
     }
     bootstrap()
-  }, [logout, persist, token])
-
-  const setStatus = useCallback(async (status: DriverStatus) => {
-    if (!driver) return
-    const updated = await updateDriverStatus(status)
-    persist(updated, token)
-  }, [driver, persist, token])
+  }, [isUnauthorizedError, logout, persist, token])
 
   const value = useMemo<AuthContextValue>(
-    () => ({ driver, token, loading, login, logout, setStatus }),
-    [driver, token, loading, login, logout, setStatus],
+    () => ({ driver, token, loading, login, logout }),
+    [driver, token, loading, login, logout],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
