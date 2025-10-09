@@ -14,7 +14,14 @@ function normalizeOrderStatus(rawStatus: unknown): OrderStatus {
   if (normalized.includes('cancel')) {
     return 'CANCELLED'
   }
-  if (normalized.includes('complete') || normalized.includes('deliver')) {
+  if (
+    normalized.includes('complete') ||
+    normalized.includes('deliver') ||
+    normalized.includes('finish') ||
+    normalized.includes('done') ||
+    normalized.includes('fulfill') ||
+    normalized.includes('close')
+  ) {
     return 'COMPLETED'
   }
   if (normalized.includes('arriv')) {
@@ -272,7 +279,25 @@ function extractDriverIdValue(value: unknown): string | undefined {
   }
   if (typeof value === 'object') {
     const record = value as Record<string, unknown>
-    const directKeys = ['id', '_id', 'driverId', 'driver_id', 'driverID', 'uuid', 'guid']
+    const directKeys = [
+      'id',
+      '_id',
+      'driverId',
+      'driver_id',
+      'driverID',
+      'uuid',
+      'guid',
+      'completedById',
+      'completed_by_id',
+      'completedDriverId',
+      'completed_driver_id',
+      'completedByDriverId',
+      'completed_by_driver_id',
+      'deliveredById',
+      'delivered_by_id',
+      'deliveryDriverId',
+      'delivery_driver_id',
+    ]
     for (const key of directKeys) {
       const candidate = record[key]
       const stringId = toStringId(candidate)
@@ -289,12 +314,35 @@ function extractDriverIdValue(value: unknown): string | undefined {
       'assignedTo',
       'assigned_to',
       'assignee',
+      'completedBy',
+      'completed_by',
+      'completion',
+      'deliveredBy',
+      'delivered_by',
+      'deliveryDriver',
+      'delivery_driver',
+      'delivery',
+      'deliveryInfo',
+      'delivery_info',
+      'deliveryDetails',
+      'delivery_details',
+      'fulfillment',
+      'fulfillmentInfo',
+      'fulfillment_info',
       'user',
       'data',
       'details',
       'profile',
       'info',
       'attributes',
+      'meta',
+      'metadata',
+      'history',
+      'record',
+      'records',
+      'result',
+      'results',
+      'payload',
     ]
     for (const key of nestedKeys) {
       const nested = record[key]
@@ -323,6 +371,31 @@ function extractDriverId(data: RawOrder): string | undefined {
     'assignedTo',
     'assigned_to',
     'assignee',
+    'completedById',
+    'completed_by_id',
+    'completedDriverId',
+    'completed_driver_id',
+    'completedByDriverId',
+    'completed_by_driver_id',
+    'completedBy',
+    'completed_by',
+    'completion',
+    'deliveredBy',
+    'delivered_by',
+    'deliveredById',
+    'delivered_by_id',
+    'deliveryDriver',
+    'delivery_driver',
+    'deliveryDriverId',
+    'delivery_driver_id',
+    'delivery',
+    'fulfillment',
+    'history',
+    'record',
+    'records',
+    'result',
+    'results',
+    'payload',
     'driver',
   ]
 
@@ -343,7 +416,13 @@ function extractCreatedAt(data: RawOrder): string {
     data.created ??
     data.createdDate ??
     data.created_date ??
-    data.timestamp
+    data.timestamp ??
+    data.completedAt ??
+    data.completed_at ??
+    data.deliveredAt ??
+    data.delivered_at ??
+    data.finishedAt ??
+    data.finished_at
   if (typeof value === 'string' && value) {
     return value
   }
@@ -405,17 +484,88 @@ function normalizeOrder(data: RawOrder): Order {
   }
 }
 
+function isOrderLike(value: unknown): value is RawOrder {
+  if (!value || typeof value !== 'object') {
+    return false
+  }
+  const record = value as Record<string, unknown>
+  if ('status' in record || 'orderStatus' in record || 'order_status' in record) {
+    return true
+  }
+  if (
+    'id' in record ||
+    '_id' in record ||
+    'orderId' in record ||
+    'order_id' in record ||
+    'uuid' in record ||
+    'guid' in record ||
+    'reference' in record ||
+    'referenceId' in record ||
+    'reference_id' in record
+  ) {
+    return true
+  }
+  return false
+}
+
 function extractOrderList(payload: any): RawOrder[] {
-  if (Array.isArray(payload)) {
-    return payload as RawOrder[]
+  const results: RawOrder[] = []
+  const seenNodes = new Set<any>()
+  const queue: Array<{ node: any; depth: number }> = [{ node: payload, depth: 0 }]
+
+  const maxDepth = 4
+
+  while (queue.length > 0) {
+    const { node, depth } = queue.shift()!
+    if (node == null) {
+      continue
+    }
+    if (seenNodes.has(node)) {
+      continue
+    }
+    seenNodes.add(node)
+
+    if (Array.isArray(node)) {
+      const orderItems = node.filter(isOrderLike)
+      if (orderItems.length > 0) {
+        for (const item of orderItems) {
+          results.push(item)
+        }
+        continue
+      }
+
+      if (depth < maxDepth) {
+        for (const entry of node) {
+          queue.push({ node: entry, depth: depth + 1 })
+        }
+      }
+      continue
+    }
+
+    if (typeof node === 'object') {
+      const values = Object.values(node as Record<string, unknown>)
+      for (const value of values) {
+        if (value == null) {
+          continue
+        }
+        if (Array.isArray(value) || (typeof value === 'object' && depth < maxDepth)) {
+          queue.push({ node: value, depth: depth + 1 })
+        }
+      }
+    }
   }
-  if (Array.isArray(payload?.orders)) {
-    return payload.orders as RawOrder[]
+
+  const deduped = new Map<string, RawOrder>()
+  for (const raw of results) {
+    const id = extractOrderId(raw)
+    if (deduped.has(id)) {
+      deduped.set(id, { ...deduped.get(id), ...raw })
+    } else {
+      deduped.set(id, raw)
+    }
   }
-  if (Array.isArray(payload?.data)) {
-    return payload.data as RawOrder[]
-  }
-  return []
+
+  return Array.from(deduped.values())
 }
 
 async function updateOrder(orderId: string, updates: Record<string, unknown>): Promise<Order> {
@@ -453,10 +603,91 @@ async function updateOrder(orderId: string, updates: Record<string, unknown>): P
   throw lastError instanceof Error ? lastError : new Error('Unable to update order.')
 }
 
+function isNotFound(error: unknown): boolean {
+  return (error as AxiosError | undefined)?.response?.status === 404
+}
+
+function isMethodNotAllowed(error: unknown): boolean {
+  return (error as AxiosError | undefined)?.response?.status === 405
+}
+
+function mergeNormalizedOrders(existing: Order, incoming: Order): Order {
+  const merged: Order = { ...existing }
+  for (const [key, value] of Object.entries(incoming) as [keyof Order, Order[keyof Order]][]) {
+    if (value === undefined || value === null) {
+      continue
+    }
+    if (Array.isArray(value)) {
+      const currentValue = merged[key]
+      if (Array.isArray(currentValue) && currentValue.length > 0 && value.length === 0) {
+        continue
+      }
+    }
+    merged[key] = value
+  }
+  return merged
+}
+
+async function fetchOrdersFromPath(path: string): Promise<RawOrder[]> {
+  try {
+    const response = await apiClient.get<unknown>(path)
+    return extractOrderList(response.data)
+  } catch (error) {
+    if (isNotFound(error) || isMethodNotAllowed(error)) {
+      return []
+    }
+    throw error
+  }
+}
+
 export async function getOrders(): Promise<Order[]> {
-  const response = await apiClient.get('/drivers/orders')
-  const orders = extractOrderList(response.data)
-  return orders.map((order) => normalizeOrder(order))
+  const collected = new Map<string, Order>()
+
+  const upsert = (rawOrders: RawOrder[]) => {
+    for (const raw of rawOrders) {
+      const normalized = normalizeOrder(raw)
+      const existing = collected.get(normalized.id)
+      if (existing) {
+        collected.set(normalized.id, mergeNormalizedOrders(existing, normalized))
+      } else {
+        collected.set(normalized.id, normalized)
+      }
+    }
+  }
+
+  const primaryPaths = ['/drivers/orders', '/orders']
+  for (const path of primaryPaths) {
+    const orders = await fetchOrdersFromPath(path)
+    if (orders.length > 0) {
+      upsert(orders)
+    }
+  }
+
+  const hasCompleted = Array.from(collected.values()).some((order) => order.status === 'COMPLETED')
+  if (!hasCompleted) {
+    const historyPaths = [
+      '/drivers/orders/history',
+      '/drivers/orders/completed',
+      '/drivers/orders?status=completed',
+      '/drivers/orders?filter=completed',
+      '/drivers/orders?state=completed',
+      '/orders/history',
+      '/orders/completed',
+      '/orders?status=completed',
+      '/orders?filter=completed',
+      '/orders?state=completed',
+    ]
+    for (const path of historyPaths) {
+      const orders = await fetchOrdersFromPath(path)
+      if (orders.length > 0) {
+        upsert(orders)
+      }
+    }
+  }
+
+  return Array.from(collected.values()).sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+  )
 }
 
 export async function acceptOrder(orderId: string): Promise<Order> {
