@@ -4,6 +4,85 @@ import { Customer, Order, OrderItem, OrderStatus } from '../types'
 
 type RawOrder = Record<string, unknown>
 
+const INVALID_PATH_STORAGE_KEY = 'jason-driver-invalid-order-paths'
+
+const invalidOrderPaths: Set<string> = (() => {
+  if (typeof window === 'undefined') {
+    return new Set<string>()
+  }
+
+  try {
+    const stored = window.sessionStorage.getItem(INVALID_PATH_STORAGE_KEY)
+    if (!stored) {
+      return new Set<string>()
+    }
+    const parsed = JSON.parse(stored) as unknown
+    if (!Array.isArray(parsed)) {
+      return new Set<string>()
+    }
+    return new Set(parsed.filter((value) => typeof value === 'string') as string[])
+  } catch (error) {
+    console.warn('Failed to restore invalid order paths', error)
+    return new Set<string>()
+  }
+})()
+
+function persistInvalidPaths() {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  try {
+    const serialized = JSON.stringify(Array.from(invalidOrderPaths))
+    window.sessionStorage.setItem(INVALID_PATH_STORAGE_KEY, serialized)
+  } catch (error) {
+    console.warn('Failed to persist invalid order paths', error)
+  }
+}
+
+function markPathInvalid(path: string) {
+  if (invalidOrderPaths.has(path)) {
+    return
+  }
+  invalidOrderPaths.add(path)
+  persistInvalidPaths()
+}
+
+function canAttemptPath(path: string): boolean {
+  return !invalidOrderPaths.has(path)
+}
+
+function getSessionDriverId(): string | undefined {
+  if (typeof window === 'undefined') {
+    return undefined
+  }
+  try {
+    const stored = window.sessionStorage.getItem('jason-driver-profile')
+    if (!stored) {
+      return undefined
+    }
+    const parsed = JSON.parse(stored) as Record<string, unknown>
+    const idCandidate =
+      parsed.id ??
+      parsed._id ??
+      parsed.driverId ??
+      parsed.driver_id ??
+      parsed.driverID ??
+      parsed.uuid ??
+      parsed.guid
+    if (typeof idCandidate === 'string' && idCandidate.trim()) {
+      return idCandidate.trim()
+    }
+    if (typeof idCandidate === 'number' && Number.isFinite(idCandidate)) {
+      return String(idCandidate)
+    }
+    return undefined
+  } catch (error) {
+    console.warn('Failed to read stored driver id', error)
+    return undefined
+  }
+}
+
 function normalizeOrderStatus(rawStatus: unknown): OrderStatus {
   if (typeof rawStatus !== 'string') {
     return 'NEW'
@@ -656,20 +735,9 @@ function mergeNormalizedOrders(existing: Order, incoming: Order): Order {
   return merged
 }
 
-async function fetchOrdersFromPath(path: string): Promise<RawOrder[]> {
-  try {
-    const response = await apiClient.get<unknown>(path)
-    return extractOrderList(response.data)
-  } catch (error) {
-    if (isNotFound(error) || isMethodNotAllowed(error)) {
-      return []
-    }
-    throw error
-  }
-}
-
 export async function getOrders(): Promise<Order[]> {
   const collected = new Map<string, Order>()
+  const driverId = getSessionDriverId()
 
   const upsert = (rawOrders: RawOrder[]) => {
     for (const raw of rawOrders) {
@@ -683,38 +751,63 @@ export async function getOrders(): Promise<Order[]> {
     }
   }
 
-  const primaryPaths = ['/driver/orders', '/drivers/orders', '/orders']
-  for (const path of primaryPaths) {
-    const orders = await fetchOrdersFromPath(path)
-    if (orders.length > 0) {
-      upsert(orders)
-    }
-  }
+  const primaryPaths = ['/drivers/orders', '/driver/orders']
+  let resolvedBasePath: string | undefined
 
-  const hasCompleted = Array.from(collected.values()).some((order) => order.status === 'COMPLETED')
-  if (!hasCompleted) {
-    const historyPaths = [
-      '/driver/orders/history',
-      '/driver/orders/completed',
-      '/driver/orders?status=completed',
-      '/driver/orders?filter=completed',
-      '/driver/orders?state=completed',
-      '/drivers/orders/history',
-      '/drivers/orders/completed',
-      '/drivers/orders?status=completed',
-      '/drivers/orders?filter=completed',
-      '/drivers/orders?state=completed',
-      '/orders/history',
-      '/orders/completed',
-      '/orders?status=completed',
-      '/orders?filter=completed',
-      '/orders?state=completed',
-    ]
-    for (const path of historyPaths) {
-      const orders = await fetchOrdersFromPath(path)
+  for (const path of primaryPaths) {
+    if (!canAttemptPath(path)) {
+      continue
+    }
+
+    try {
+      const response = await apiClient.get<unknown>(path)
+      const orders = extractOrderList(response.data)
       if (orders.length > 0) {
         upsert(orders)
       }
+      resolvedBasePath = path
+      break
+    } catch (error) {
+      if (isNotFound(error) || isMethodNotAllowed(error)) {
+        markPathInvalid(path)
+        continue
+      }
+      throw error
+    }
+  }
+
+  const completedPaths: string[] = []
+  if (resolvedBasePath) {
+    const encodedDriverId = driverId ? encodeURIComponent(driverId) : undefined
+    if (encodedDriverId) {
+      completedPaths.push(`${resolvedBasePath}?status=Completed&driverId=${encodedDriverId}`)
+    }
+    completedPaths.push(`${resolvedBasePath}?status=Completed`)
+    completedPaths.push(`${resolvedBasePath}/history`)
+    if (encodedDriverId) {
+      completedPaths.push(`${resolvedBasePath}/history?driverId=${encodedDriverId}`)
+    }
+  }
+
+  for (const path of completedPaths) {
+    if (!canAttemptPath(path)) {
+      continue
+    }
+
+    try {
+      const response = await apiClient.get<unknown>(path)
+      const orders = extractOrderList(response.data)
+      if (orders.length === 0) {
+        continue
+      }
+      upsert(orders)
+      break
+    } catch (error) {
+      if (isNotFound(error) || isMethodNotAllowed(error)) {
+        markPathInvalid(path)
+        continue
+      }
+      throw error
     }
   }
 
