@@ -22,30 +22,30 @@ export default function OrdersRoute() {
   const [completedVisibleCount, setCompletedVisibleCount] = useState(10)
 
   const segmented = useMemo(() => {
-    const assigned = orders.filter((order) => order.status === 'NEW' || order.status === 'ASSIGNED')
+    const assigned = orders.filter((order) => order.status === 'assigned')
     const accepted = orders.filter((order) => {
-      if (order.status !== 'IN_PROGRESS') {
+      if (order.status !== 'accepted') {
         return false
       }
 
       if (!driver) return true
 
-      return order.assignedDriverId === driver.id
+      return order.assignedDriverId ? order.assignedDriverId === driver.id : true
     })
     const outForDelivery = orders.filter((order) => {
-      if (order.status !== 'ARRIVED') {
+      if (order.status !== 'out-for-delivery') {
         return false
       }
 
       if (!driver) return true
 
-      return order.assignedDriverId === driver.id
+      return order.assignedDriverId ? order.assignedDriverId === driver.id : true
     })
     const completed = orders
       .filter((order) => {
-        if (order.status !== 'COMPLETED') return false
+        if (order.status !== 'completed') return false
         if (!driver) return true
-        return order.assignedDriverId === driver.id
+        return order.assignedDriverId ? order.assignedDriverId === driver.id : true
       })
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     return { assigned, accepted, outForDelivery, completed }
@@ -59,18 +59,24 @@ export default function OrdersRoute() {
   const canShowMoreCompleted = segmented.completed.length > completedVisibleCount
 
   const handleAccept = async (order) => {
-    await accept(order.id)
-    setActiveTab('accepted')
+    const success = await accept(order.id)
+    if (success) {
+      setActiveTab('accepted')
+    }
   }
 
   const handleArrive = async (orderId) => {
-    await markArrived(orderId)
-    setActiveTab('out-for-delivery')
+    const success = await markArrived(orderId)
+    if (success) {
+      setActiveTab('out-for-delivery')
+    }
   }
 
   const handleComplete = async (orderId, signature) => {
-    await markComplete(orderId, signature)
-    push({ title: 'Signature captured', description: 'Delivery is complete.', variant: 'success' })
+    const success = await markComplete(orderId, signature)
+    if (success) {
+      push({ title: 'Signature captured', description: 'Delivery is complete.', variant: 'success' })
+    }
   }
 
   useEffect(() => {
@@ -115,6 +121,8 @@ export default function OrdersRoute() {
               ? assignedOrders.length
               : tab.id === 'accepted'
               ? acceptedOrders.length
+              : tab.id === 'out-for-delivery'
+              ? outForDeliveryOrders.length
               : undefined,
         }))}
         activeId={activeTab}

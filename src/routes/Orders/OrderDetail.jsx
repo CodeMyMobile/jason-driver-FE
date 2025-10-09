@@ -9,17 +9,18 @@ export default function OrderDetail({ order, onArrive, onComplete }) {
   const [paymentChecked, setPaymentChecked] = useState(false)
   const [signature, setSignature] = useState(null)
   const [submitting, setSubmitting] = useState(false)
+  const stage = order.status ?? 'assigned'
 
   useEffect(() => {
     setIdChecked(false)
     setPaymentChecked(false)
     setSignature(null)
     setSubmitting(false)
-  }, [order.id, order.status])
+  }, [order.id, stage])
 
   const canComplete = idChecked && paymentChecked && Boolean(signature)
-  const showVerification = order.status === 'ARRIVED'
-  const showArriveButton = order.status === 'IN_PROGRESS'
+  const showVerification = stage === 'out-for-delivery'
+  const showArriveButton = stage === 'accepted'
 
   const mapsQuery = useMemo(() => encodeURIComponent(order.customer.address), [order.customer.address])
 
@@ -119,7 +120,7 @@ export default function OrderDetail({ order, onArrive, onComplete }) {
             Complete Delivery
           </button>
         </div>
-      ) : order.status === 'COMPLETED' ? (
+      ) : stage === 'completed' ? (
         <div className="completion-banner">Delivery completed · Signature on file.</div>
       ) : null}
     </section>

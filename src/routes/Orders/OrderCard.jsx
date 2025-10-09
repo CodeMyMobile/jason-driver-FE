@@ -3,8 +3,8 @@ import TimerChip from '../../components/TimerChip.jsx'
 import { classNames } from '../../utils/classNames.ts'
 
 export default function OrderCard({ order, onAccept, onSelect, isSelected }) {
-  const isPending = order.status === 'NEW'
-  const statusLabel = order.status === 'COMPLETED' ? 'Completed' : undefined
+  const isPending = order.status === 'assigned'
+  const statusLabel = order.status === 'completed' ? 'Completed' : undefined
   const isSelectable = Boolean(onSelect)
 
   return (

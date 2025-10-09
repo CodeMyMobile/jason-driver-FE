@@ -1,4 +1,18 @@
-import { getElapsedMinutes } from '../api/orders.ts'
+function getElapsedMinutes(order) {
+  if (!order) {
+    return 0
+  }
+  const timestamp = order.createdAt ?? order.created_at ?? order.updatedAt
+  if (!timestamp) {
+    return 0
+  }
+  const start = new Date(timestamp)
+  if (Number.isNaN(start.getTime())) {
+    return 0
+  }
+  const diff = (Date.now() - start.getTime()) / 60000
+  return diff > 0 ? diff : 0
+}
 
 function formatDuration(minutes) {
   const wholeMinutes = Math.floor(minutes)
