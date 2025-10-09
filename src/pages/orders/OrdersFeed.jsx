@@ -128,15 +128,6 @@ export default function OrdersFeed() {
     return counts
   }, [orders])
 
-  const maxSectionCount = useMemo(() => {
-    const values = Object.values(sectionCounts)
-    if (values.length === 0) {
-      return 1
-    }
-
-    return Math.max(1, ...values)
-  }, [sectionCounts])
-
   const displayedOrders = useMemo(() => {
     const statuses = SECTION_STATUS_MAP[viewConfig.key] ?? []
     const statusSet = new Set(statuses.map((status) => status.toLowerCase()))
@@ -149,6 +140,32 @@ export default function OrdersFeed() {
       return statusSet.has(order.status.toLowerCase())
     })
   }, [orders, viewConfig])
+
+  const totalOrders = useMemo(() => orders.length, [orders])
+
+  const busiestSection = useMemo(() => {
+    return SECTION_CONFIG.reduce(
+      (acc, section) => {
+        const count = sectionCounts[section.key] ?? 0
+
+        if (!acc || count > acc.count) {
+          return { ...section, count }
+        }
+
+        return acc
+      },
+      null,
+    )
+  }, [sectionCounts])
+
+  const calmestSection = useMemo(() => {
+    const sorted = SECTION_CONFIG.map((section) => ({
+      ...section,
+      count: sectionCounts[section.key] ?? 0,
+    })).sort((a, b) => a.count - b.count)
+
+    return sorted[0]
+  }, [sectionCounts])
 
   if (loading && orders.length === 0) {
     return (
@@ -214,31 +231,81 @@ export default function OrdersFeed() {
             )}
           </div>
 
-          <div className="summary-panels" role="list">
-            {SECTION_CONFIG.map((section) => {
-              const count = sectionCounts[section.key] ?? 0
-              const progress = Math.round((count / maxSectionCount) * 100)
+          <div className="summary-overview">
+            <div className="summary-distribution">
+              <div className="summary-section-header">
+                <h3>Queue overview</h3>
+                <span>{totalOrders} total</span>
+              </div>
+              {totalOrders > 0 ? (
+                <>
+                  <div className="summary-distribution-bar" role="presentation">
+                    {SECTION_CONFIG.map((section) => {
+                      const count = sectionCounts[section.key] ?? 0
 
-              return (
-                <button
-                  key={section.key}
-                  type="button"
-                  role="listitem"
-                  className={["summary-panel", view === section.key ? "active" : ""].filter(Boolean).join(" ")}
-                  onClick={() => setView(section.key)}
-                  aria-pressed={view === section.key}
-                >
-                  <div className="summary-panel-header">
-                    <span className="summary-panel-label">{section.status}</span>
-                    <span className="summary-panel-count">{count}</span>
+                      return (
+                        <span
+                          key={section.key}
+                          className={`summary-distribution-segment ${section.key}`}
+                          style={{ flexGrow: Math.max(count, 1) }}
+                          title={`${section.status}: ${count} orders`}
+                        />
+                      )
+                    })}
                   </div>
-                  <p className="summary-panel-description">{section.description}</p>
-                  <div className="summary-panel-progress" aria-hidden="true">
-                    <span className="summary-panel-progress-bar" style={{ width: `${progress}%` }} />
-                  </div>
-                </button>
-              )
-            })}
+                  <ul className="summary-distribution-legend">
+                    {SECTION_CONFIG.map((section) => {
+                      const count = sectionCounts[section.key] ?? 0
+                      const percentage = totalOrders > 0 ? Math.round((count / totalOrders) * 100) : 0
+
+                      return (
+                        <li key={section.key}>
+                          <span className={`legend-dot ${section.key}`} aria-hidden="true" />
+                          <div className="legend-copy">
+                            <span className="legend-label">{section.status}</span>
+                            <span className="legend-value">
+                              {count} <span className="legend-percentage">({percentage}%)</span>
+                            </span>
+                          </div>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                </>
+              ) : (
+                <p className="summary-empty">No orders in queue yet.</p>
+              )}
+            </div>
+
+            <div className="summary-insights-grid">
+              <article className="summary-insight-card">
+                <h4>Busiest queue</h4>
+                {busiestSection ? (
+                  <>
+                    <p className="insight-primary">{busiestSection.status}</p>
+                    <p className="insight-secondary">{busiestSection.count} orders waiting</p>
+                  </>
+                ) : (
+                  <p className="insight-secondary">Waiting for new activity</p>
+                )}
+              </article>
+              <article className="summary-insight-card">
+                <h4>Calmest queue</h4>
+                {calmestSection ? (
+                  <>
+                    <p className="insight-primary">{calmestSection.status}</p>
+                    <p className="insight-secondary">{calmestSection.count} orders</p>
+                  </>
+                ) : (
+                  <p className="insight-secondary">Waiting for new activity</p>
+                )}
+              </article>
+              <article className="summary-insight-card">
+                <h4>Currently viewing</h4>
+                <p className="insight-primary">{viewConfig.title}</p>
+                <p className="insight-secondary">{viewConfig.description}</p>
+              </article>
+            </div>
           </div>
         </section>
 
