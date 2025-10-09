@@ -9,9 +9,9 @@ import {
   useState,
 } from 'react'
 import { AxiosError } from 'axios'
-import { getCurrentDriver, login as loginApi, updateDriverStatus } from '../api/auth'
+import { getCurrentDriver, login as loginApi } from '../api/auth'
 import { apiClient } from '../api/client'
-import { Driver, DriverStatus } from '../types'
+import { Driver } from '../types'
 
 interface AuthContextValue {
   driver?: Driver
@@ -19,7 +19,6 @@ interface AuthContextValue {
   loading: boolean
   login: (email: string, password: string) => Promise<void>
   logout: () => void
-  setStatus: (status: DriverStatus) => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
@@ -110,15 +109,9 @@ export function AuthProvider({ children }: PropsWithChildren): JSX.Element {
     bootstrap()
   }, [isUnauthorizedError, logout, persist, token])
 
-  const setStatus = useCallback(async (status: DriverStatus) => {
-    if (!driver) return
-    const updated = await updateDriverStatus(status)
-    persist(updated, token)
-  }, [driver, persist, token])
-
   const value = useMemo<AuthContextValue>(
-    () => ({ driver, token, loading, login, logout, setStatus }),
-    [driver, token, loading, login, logout, setStatus],
+    () => ({ driver, token, loading, login, logout }),
+    [driver, token, loading, login, logout],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

@@ -151,40 +151,4 @@ export async function getCurrentDriver(): Promise<Driver> {
   throw new Error('Missing driver reference for profile lookup.')
 }
 
-export async function updateDriverStatus(status: DriverStatus): Promise<Driver> {
-  const payload = { status }
-  const storedId = getStoredDriverId()
-  const attempts: Array<() => Promise<Driver>> = []
-
-  if (storedId) {
-    attempts.push(async () => {
-      const response = await apiClient.patch(`/drivers/${storedId}`, payload)
-      return extractDriver(response.data)
-    })
-  }
-
-  attempts.push(
-    async () => {
-      const response = await apiClient.patch('/drivers/status', payload)
-      return extractDriver(response.data)
-    },
-    async () => {
-      const response = await apiClient.patch('/drivers/me/status', payload)
-      return extractDriver(response.data)
-    },
-  )
-
-  let lastError: unknown
-  for (const attempt of attempts) {
-    try {
-      return await attempt()
-    } catch (error) {
-      lastError = error
-      if (!(isNotFound(error) || isMethodNotAllowed(error))) {
-        throw error
-      }
-    }
-  }
-
-  throw lastError instanceof Error ? lastError : new Error('Unable to update driver status.')
-}
+// Driver status updates are intentionally omitted in the refreshed UI.
