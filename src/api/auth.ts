@@ -79,7 +79,7 @@ function isMethodNotAllowed(error: unknown): boolean {
   return Boolean((error as AxiosError)?.response?.status === 405)
 }
 
-function getStoredDriverId(): string | undefined {
+function getStoredDriver(): Driver | undefined {
   if (typeof window === 'undefined') {
     return undefined
   }
@@ -87,11 +87,15 @@ function getStoredDriverId(): string | undefined {
     const stored = sessionStorage.getItem('jason-driver-profile')
     if (!stored) return undefined
     const parsed = JSON.parse(stored) as Partial<Driver> & { _id?: string }
-    return parsed?.id ?? parsed?._id ?? undefined
+    return extractDriver(parsed)
   } catch (error) {
     console.warn('Failed to read stored driver', error)
     return undefined
   }
+}
+
+function getStoredDriverId(): string | undefined {
+  return getStoredDriver()?.id
 }
 
 async function fetchDriverProfile(path: string): Promise<Driver> {
@@ -110,20 +114,41 @@ export async function login(payload: LoginPayload): Promise<AuthResponse> {
 }
 
 export async function getCurrentDriver(): Promise<Driver> {
+  let lastNotFoundError: unknown
   try {
     return await fetchDriverProfile('/drivers/me')
   } catch (error) {
     if (!(isNotFound(error) || isMethodNotAllowed(error))) {
       throw error
     }
+    lastNotFoundError = error
   }
 
-  const storedId = getStoredDriverId()
-  if (!storedId) {
-    throw new Error('Missing driver reference for profile lookup.')
+  const fallbackDriver = getStoredDriver()
+  const storedId = fallbackDriver?.id
+  if (storedId) {
+    try {
+      const response = await apiClient.get(`/drivers/${storedId}`)
+      return extractDriver(response.data)
+    } catch (error) {
+      if (!(isNotFound(error) || isMethodNotAllowed(error))) {
+        throw error
+      }
+      lastNotFoundError = error
+    }
   }
-  const response = await apiClient.get(`/drivers/${storedId}`)
-  return extractDriver(response.data)
+
+  if (fallbackDriver) {
+    return fallbackDriver
+  }
+
+  if (lastNotFoundError) {
+    throw lastNotFoundError instanceof Error
+      ? lastNotFoundError
+      : new Error('Unable to locate driver profile.')
+  }
+
+  throw new Error('Missing driver reference for profile lookup.')
 }
 
 export async function updateDriverStatus(status: DriverStatus): Promise<Driver> {
