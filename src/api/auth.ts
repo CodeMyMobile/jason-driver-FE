@@ -104,37 +104,63 @@ async function fetchDriverProfile(path: string): Promise<Driver> {
 }
 
 export async function login(payload: LoginPayload): Promise<AuthResponse> {
-  const response = await apiClient.post('/drivers/login', payload)
-  const { token } = response.data ?? {}
-  const driver = extractDriver(response.data)
-  if (!token || !driver) {
-    throw new Error('Invalid login response from server.')
+  const attempts = ['/auth/login', '/driver/login', '/drivers/login']
+  let lastError: unknown
+
+  for (const path of attempts) {
+    try {
+      const response = await apiClient.post<AuthResponse>(path, payload)
+      const { token } = response.data ?? {}
+      const driver = extractDriver(response.data)
+      if (!token || !driver) {
+        throw new Error('Invalid login response from server.')
+      }
+      return { token, driver }
+    } catch (error) {
+      lastError = error
+      if (isNotFound(error) || isMethodNotAllowed(error)) {
+        continue
+      }
+      throw error
+    }
   }
-  return { token, driver }
+
+  throw lastError instanceof Error
+    ? lastError
+    : new Error('Unable to authenticate driver.')
 }
 
 export async function getCurrentDriver(): Promise<Driver> {
-  let lastNotFoundError: unknown
-  try {
-    return await fetchDriverProfile('/drivers/me')
-  } catch (error) {
-    if (!(isNotFound(error) || isMethodNotAllowed(error))) {
+  const profilePaths = ['/driver/me', '/drivers/me', '/drivers/current']
+  let lastProfileError: unknown
+
+  for (const path of profilePaths) {
+    try {
+      return await fetchDriverProfile(path)
+    } catch (error) {
+      lastProfileError = error
+      if (isNotFound(error) || isMethodNotAllowed(error)) {
+        continue
+      }
       throw error
     }
-    lastNotFoundError = error
   }
 
   const fallbackDriver = getStoredDriver()
   const storedId = fallbackDriver?.id
   if (storedId) {
-    try {
-      const response = await apiClient.get(`/drivers/${storedId}`)
-      return extractDriver(response.data)
-    } catch (error) {
-      if (!(isNotFound(error) || isMethodNotAllowed(error))) {
+    const detailPaths = [`/driver/${storedId}`, `/drivers/${storedId}`]
+    for (const path of detailPaths) {
+      try {
+        const response = await apiClient.get(path)
+        return extractDriver(response.data)
+      } catch (error) {
+        lastProfileError = error
+        if (isNotFound(error) || isMethodNotAllowed(error)) {
+          continue
+        }
         throw error
       }
-      lastNotFoundError = error
     }
   }
 
@@ -142,9 +168,9 @@ export async function getCurrentDriver(): Promise<Driver> {
     return fallbackDriver
   }
 
-  if (lastNotFoundError) {
-    throw lastNotFoundError instanceof Error
-      ? lastNotFoundError
+  if (lastProfileError) {
+    throw lastProfileError instanceof Error
+      ? lastProfileError
       : new Error('Unable to locate driver profile.')
   }
 

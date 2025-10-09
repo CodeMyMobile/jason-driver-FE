@@ -14,9 +14,13 @@ function normalizeOrderStatus(rawStatus: unknown): OrderStatus {
   if (normalized.includes('cancel')) {
     return 'CANCELLED'
   }
+  if (normalized.includes('out') && normalized.includes('delivery')) {
+    return 'IN_PROGRESS'
+  }
   if (
     normalized.includes('complete') ||
-    normalized.includes('deliver') ||
+    normalized.includes('delivered') ||
+    normalized.includes('finished') ||
     normalized.includes('finish') ||
     normalized.includes('done') ||
     normalized.includes('fulfill') ||
@@ -27,10 +31,22 @@ function normalizeOrderStatus(rawStatus: unknown): OrderStatus {
   if (normalized.includes('arriv')) {
     return 'ARRIVED'
   }
-  if (normalized.includes('progress') || normalized.includes('accept') || normalized.includes('active')) {
+  if (
+    normalized.includes('progress') ||
+    normalized.includes('accept') ||
+    normalized.includes('active') ||
+    normalized.includes('deliver') ||
+    normalized.includes('enroute') ||
+    normalized.includes('en_route')
+  ) {
     return 'IN_PROGRESS'
   }
-  if (normalized.includes('assign') || normalized.includes('pending') || normalized.includes('new')) {
+  if (
+    normalized.includes('assign') ||
+    normalized.includes('pending') ||
+    normalized.includes('new') ||
+    normalized.includes('ready')
+  ) {
     return 'NEW'
   }
 
@@ -574,11 +590,23 @@ async function updateOrder(orderId: string, updates: Record<string, unknown>): P
 
   const attempts: Array<() => Promise<RawOrder>> = [
     async () => {
+      const response = await apiClient.patch<RawOrder>(`/driver/orders/${orderId}`, body)
+      return response.data
+    },
+    async () => {
       const response = await apiClient.patch<RawOrder>(`/drivers/orders/${orderId}`, body)
       return response.data
     },
     async () => {
+      const response = await apiClient.put<RawOrder>('/driver/orders', body)
+      return response.data
+    },
+    async () => {
       const response = await apiClient.put<RawOrder>('/drivers/orders', body)
+      return response.data
+    },
+    async () => {
+      const response = await apiClient.post<RawOrder>('/driver/orders/update', body)
       return response.data
     },
     async () => {
@@ -655,7 +683,7 @@ export async function getOrders(): Promise<Order[]> {
     }
   }
 
-  const primaryPaths = ['/drivers/orders', '/orders']
+  const primaryPaths = ['/driver/orders', '/drivers/orders', '/orders']
   for (const path of primaryPaths) {
     const orders = await fetchOrdersFromPath(path)
     if (orders.length > 0) {
@@ -666,6 +694,11 @@ export async function getOrders(): Promise<Order[]> {
   const hasCompleted = Array.from(collected.values()).some((order) => order.status === 'COMPLETED')
   if (!hasCompleted) {
     const historyPaths = [
+      '/driver/orders/history',
+      '/driver/orders/completed',
+      '/driver/orders?status=completed',
+      '/driver/orders?filter=completed',
+      '/driver/orders?state=completed',
       '/drivers/orders/history',
       '/drivers/orders/completed',
       '/drivers/orders?status=completed',
