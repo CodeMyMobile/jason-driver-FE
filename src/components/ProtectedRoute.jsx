@@ -1,19 +1,20 @@
-import { Navigate, Outlet } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext'
+import { Navigate, Outlet, useLocation } from 'react-router-dom'
+import { useAuth } from '../hooks/useAuth.jsx'
 
-export default function ProtectedRoute({ redirectTo = '/login' }) {
-  const { token, initialising } = useAuth()
+export default function ProtectedRoute() {
+  const { driver, loading } = useAuth()
+  const location = useLocation()
 
-  if (initialising) {
+  if (loading) {
     return (
-      <div className="screen-center">
-        <div className="spinner" aria-label="Loading" />
+      <div className="loading-screen" role="status" aria-live="polite">
+        Loading driver session…
       </div>
     )
   }
 
-  if (!token) {
-    return <Navigate to={redirectTo} replace />
+  if (!driver) {
+    return <Navigate to="/login" state={{ from: location }} replace />
   }
 
   return <Outlet />

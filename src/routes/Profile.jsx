@@ -1,20 +1,15 @@
 import { useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
-import { useAuth } from '../hooks/useAuth'
-import { useToast } from '../hooks/useToast'
-import { DriverStatus } from '../types'
+import { useAuth } from '../hooks/useAuth.jsx'
+import { useToast } from '../hooks/useToast.jsx'
 
-interface AppShellContext {
-  trackingActive: boolean
-}
-
-export default function ProfileRoute(): JSX.Element {
-  const { trackingActive } = useOutletContext<AppShellContext>()
+export default function ProfileRoute() {
+  const { trackingActive } = useOutletContext()
   const { driver, logout, setStatus } = useAuth()
   const { push } = useToast()
   const [updating, setUpdating] = useState(false)
 
-  async function handleStatusChange(nextStatus: DriverStatus) {
+  async function handleStatusChange(nextStatus) {
     if (!driver || driver.status === nextStatus) return
     setUpdating(true)
     try {

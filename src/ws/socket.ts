@@ -1,4 +1,4 @@
-import { mockMessages, mockOrders } from '../api/mockData'
+import { mockMessages } from '../api/mockData'
 import { SocketEvent } from '../types'
 
 export type SocketHandler<T = unknown> = (payload: T) => void
@@ -82,12 +82,10 @@ export class MockSocket extends SocketClient {
 
   connect(): void {
     this.timer = window.setInterval(() => {
-      const newest = mockOrders.find((order) => order.status === 'NEW')
-      if (newest) {
-        this.dispatch('ORDER_UPDATED', newest)
-      }
       const lastMessage = mockMessages[mockMessages.length - 1]
-      this.dispatch('CHAT_MESSAGE', lastMessage)
+      if (lastMessage) {
+        this.dispatch('CHAT_MESSAGE', lastMessage)
+      }
     }, 15000)
   }
 

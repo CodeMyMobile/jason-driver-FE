@@ -1,13 +1,12 @@
-import { FormEvent, useEffect, useRef, useState } from 'react'
-import { getMessages, sendMessage } from '../../api/chat'
-import { Message } from '../../types'
-import { useSocket } from '../../hooks/useSocket'
-import { useToast } from '../../hooks/useToast'
+import { useEffect, useRef, useState } from 'react'
+import { getMessages, sendMessage } from '../../api/chat.ts'
+import { useSocket } from '../../hooks/useSocket.jsx'
+import { useToast } from '../../hooks/useToast.jsx'
 
-export default function ChatThread(): JSX.Element {
-  const [messages, setMessages] = useState<Message[]>([])
+export default function ChatThread() {
+  const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
-  const listRef = useRef<HTMLDivElement | null>(null)
+  const listRef = useRef(null)
   const { subscribe, emit } = useSocket()
   const { push } = useToast()
 
@@ -21,7 +20,7 @@ export default function ChatThread(): JSX.Element {
   }, [])
 
   useEffect(() => {
-    const unsubscribe = subscribe<Message>('CHAT_MESSAGE', (payload) => {
+    const unsubscribe = subscribe('CHAT_MESSAGE', (payload) => {
       setMessages((current) => {
         if (current.some((message) => message.id === payload.id)) {
           return current
@@ -41,10 +40,10 @@ export default function ChatThread(): JSX.Element {
     })
   }
 
-  async function handleSubmit(event: FormEvent) {
+  async function handleSubmit(event) {
     event.preventDefault()
     if (!input.trim()) return
-    const optimistic: Message = {
+    const optimistic = {
       id: `optimistic-${Date.now()}`,
       sender: 'DRIVER',
       text: input,

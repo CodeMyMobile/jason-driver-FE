@@ -1,23 +1,8 @@
-import { Order } from '../../types'
-import { OrderDetail } from './OrderDetail'
-import { classNames } from '../../utils/classNames'
-import { formatTimeOfDay, getInitials } from '../../utils/format'
+import OrderDetail from './OrderDetail.jsx'
+import { classNames } from '../../utils/classNames.ts'
+import { formatTimeOfDay, getInitials } from '../../utils/format.ts'
 
-interface CompletedOrderCardProps {
-  order: Order
-  expanded: boolean
-  onToggle: (order: Order) => void
-  onArrive: (orderId: string) => Promise<void>
-  onComplete: (orderId: string, signature: string) => Promise<void>
-}
-
-export function CompletedOrderCard({
-  order,
-  expanded,
-  onToggle,
-  onArrive,
-  onComplete,
-}: CompletedOrderCardProps): JSX.Element {
+export default function CompletedOrderCard({ order, expanded, onToggle, onArrive, onComplete }) {
   const deliveredTime = formatTimeOfDay(order.createdAt)
 
   return (

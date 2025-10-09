@@ -1,32 +1,26 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Order } from '../../types'
-import { formatCurrency, getInitials } from '../../utils/format'
-import { TimerChip } from '../../components/TimerChip'
-import { VerifyChecklist } from '../../components/VerifyChecklist'
-import { SignaturePad } from '../../components/SignaturePad'
+import { formatCurrency, getInitials } from '../../utils/format.ts'
+import TimerChip from '../../components/TimerChip.jsx'
+import VerifyChecklist from '../../components/VerifyChecklist.jsx'
+import SignaturePad from '../../components/SignaturePad.jsx'
 
-interface OrderDetailProps {
-  order: Order
-  onArrive: (orderId: string) => Promise<void>
-  onComplete: (orderId: string, signature: string) => Promise<void>
-}
-
-export function OrderDetail({ order, onArrive, onComplete }: OrderDetailProps): JSX.Element {
+export default function OrderDetail({ order, onArrive, onComplete }) {
   const [idChecked, setIdChecked] = useState(false)
   const [paymentChecked, setPaymentChecked] = useState(false)
-  const [signature, setSignature] = useState<string | null>(null)
+  const [signature, setSignature] = useState(null)
   const [submitting, setSubmitting] = useState(false)
+  const stage = order.status ?? 'assigned'
 
   useEffect(() => {
     setIdChecked(false)
     setPaymentChecked(false)
     setSignature(null)
     setSubmitting(false)
-  }, [order.id, order.status])
+  }, [order.id, stage])
 
   const canComplete = idChecked && paymentChecked && Boolean(signature)
-  const showVerification = order.status === 'ARRIVED'
-  const showArriveButton = order.status === 'IN_PROGRESS'
+  const showVerification = stage === 'out-for-delivery'
+  const showArriveButton = stage === 'accepted'
 
   const mapsQuery = useMemo(() => encodeURIComponent(order.customer.address), [order.customer.address])
 
@@ -99,12 +93,7 @@ export function OrderDetail({ order, onArrive, onComplete }: OrderDetailProps): 
         </div>
       ) : null}
       {showArriveButton ? (
-        <button
-          type="button"
-          className="action-btn primary"
-          onClick={handleArrive}
-          disabled={submitting}
-        >
+        <button type="button" className="action-btn primary" onClick={handleArrive} disabled={submitting}>
           I&apos;ve Arrived at Customer Location →
         </button>
       ) : null}
@@ -131,7 +120,7 @@ export function OrderDetail({ order, onArrive, onComplete }: OrderDetailProps): 
             Complete Delivery
           </button>
         </div>
-      ) : order.status === 'COMPLETED' ? (
+      ) : stage === 'completed' ? (
         <div className="completion-banner">Delivery completed · Signature on file.</div>
       ) : null}
     </section>

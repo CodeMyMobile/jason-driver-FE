@@ -1,9 +1,9 @@
-import { FormEvent, useState } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAuth } from '../hooks/useAuth'
-import { useToast } from '../hooks/useToast'
+import { useAuth } from '../hooks/useAuth.jsx'
+import { useToast } from '../hooks/useToast.jsx'
 
-export default function LoginRoute(): JSX.Element {
+export default function LoginRoute() {
   const { login } = useAuth()
   const navigate = useNavigate()
   const { push } = useToast()
@@ -11,7 +11,7 @@ export default function LoginRoute(): JSX.Element {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
 
-  async function handleSubmit(event: FormEvent) {
+  async function handleSubmit(event) {
     event.preventDefault()
     setLoading(true)
     try {
@@ -25,24 +25,26 @@ export default function LoginRoute(): JSX.Element {
     }
   }
 
-  function fillDemo() {
-    setEmail('driver@example.com')
-    setPassword('password123')
-  }
-
   return (
-    <div className="login-container">
-      <div className="login-content">
-        <div className="login-logo">
-          <div className="logo-icon" aria-hidden>
+    <div className="driver-login">
+      <div className="driver-login__glow" aria-hidden />
+      <div className="driver-login__panel">
+        <header className="driver-login__brand">
+          <div className="driver-login__logo" aria-hidden>
             📦
           </div>
-          <h1>Jason&apos;s Delivery</h1>
-          <p>Driver Portal</p>
-        </div>
-        <form className="login-form" onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label htmlFor="email">Email Address</label>
+          <div className="driver-login__brand-text">
+            <h1>Jason&apos;s Delivery</h1>
+            <p>Driver Portal</p>
+          </div>
+        </header>
+        <form className="driver-login__form" onSubmit={handleSubmit}>
+          <div className="driver-login__form-header">
+            <h2>Sign in to continue</h2>
+            <p>Use the credentials provided by dispatch.</p>
+          </div>
+          <div className="driver-login__field">
+            <label htmlFor="email">Email address</label>
             <input
               id="email"
               type="email"
@@ -53,7 +55,7 @@ export default function LoginRoute(): JSX.Element {
               required
             />
           </div>
-          <div className="form-group">
+          <div className="driver-login__field">
             <label htmlFor="password">Password</label>
             <input
               id="password"
@@ -61,19 +63,17 @@ export default function LoginRoute(): JSX.Element {
               autoComplete="current-password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              placeholder="Min. 6 characters"
+              placeholder="At least 6 characters"
               minLength={6}
               required
             />
           </div>
-          <button type="submit" className="login-btn" disabled={loading}>
+          <button type="submit" className="driver-login__submit" disabled={loading}>
             {loading ? 'Signing In…' : 'Sign In'}
           </button>
-          <div className="login-footer">
-            <p className="demo-note">Demo: Use any email + 6+ char password</p>
-            <button type="button" className="demo-button" onClick={fillDemo}>
-              Use Demo Credentials
-            </button>
+          <div className="driver-login__helper">
+            <span>Having trouble?</span>
+            <span>Contact your dispatcher for support.</span>
           </div>
         </form>
       </div>

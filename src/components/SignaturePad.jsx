@@ -1,12 +1,7 @@
 import { useEffect, useRef } from 'react'
 
-interface SignaturePadProps {
-  value: string | null
-  onChange: (value: string | null) => void
-}
-
-export function SignaturePad({ value, onChange }: SignaturePadProps): JSX.Element {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null)
+export default function SignaturePad({ value, onChange }) {
+  const canvasRef = useRef(null)
   const drawing = useRef(false)
   const hasSignature = useRef(false)
 
@@ -49,7 +44,7 @@ export function SignaturePad({ value, onChange }: SignaturePadProps): JSX.Elemen
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    function getPoint(event: PointerEvent) {
+    function getPoint(event) {
       const rect = canvas.getBoundingClientRect()
       return {
         x: event.clientX - rect.left,
@@ -57,7 +52,7 @@ export function SignaturePad({ value, onChange }: SignaturePadProps): JSX.Elemen
       }
     }
 
-    function handlePointerDown(event: PointerEvent) {
+    function handlePointerDown(event) {
       drawing.current = true
       const { x, y } = getPoint(event)
       ctx.beginPath()
@@ -65,7 +60,7 @@ export function SignaturePad({ value, onChange }: SignaturePadProps): JSX.Elemen
       event.preventDefault()
     }
 
-    function handlePointerMove(event: PointerEvent) {
+    function handlePointerMove(event) {
       if (!drawing.current) return
       const { x, y } = getPoint(event)
       ctx.lineTo(x, y)
@@ -74,7 +69,7 @@ export function SignaturePad({ value, onChange }: SignaturePadProps): JSX.Elemen
       event.preventDefault()
     }
 
-    function handlePointerUp(event: PointerEvent) {
+    function handlePointerUp(event) {
       if (!drawing.current) return
       handlePointerMove(event)
       drawing.current = false
