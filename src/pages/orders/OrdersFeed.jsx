@@ -4,26 +4,44 @@ import { useAuth } from '../../context/AuthContext'
 import { fetchOrders } from '../../services/orderService'
 import './Orders.css'
 
-const ORDER_VIEWS = [
+const SECTION_CONFIG = [
   {
-    id: 'assigned',
-    label: 'Assigned',
-    statuses: ['Assigned'],
-    summaryLabel: 'orders ready for pickup',
+    key: 'assigned',
+    status: 'Assigned',
+    title: 'Assigned Orders',
+    description: 'Orders that are ready for you to accept.',
   },
   {
-    id: 'accepted',
-    label: 'Accepted',
-    statuses: ['Accepted'],
-    summaryLabel: 'orders preparing for you',
+    key: 'accepted',
+    status: 'Accepted',
+    title: 'Accepted Orders',
+    description: 'Orders that are waiting to start delivery.',
   },
   {
-    id: 'progress',
-    label: 'Out for delivery',
-    statuses: ['In Progress', 'Out for delivery'],
-    summaryLabel: 'orders on the move',
+    key: 'progress',
+    status: 'In Progress',
+    title: 'Out for Delivery',
+    description: 'Orders that are currently on the way.',
   },
 ]
+
+const SECTION_STATUS_MAP = SECTION_CONFIG.reduce((acc, section) => {
+  if (section.key === 'progress') {
+    acc[section.key] = [section.status, 'Out for delivery']
+  } else {
+    acc[section.key] = [section.status]
+  }
+
+  return acc
+}, {})
+
+const STATUS_TO_SECTION = Object.entries(SECTION_STATUS_MAP).reduce((acc, [key, statuses]) => {
+  statuses.forEach((status) => {
+    acc[status.toLowerCase()] = key
+  })
+
+  return acc
+}, {})
 
 function formatName(owner) {
   if (!owner) {
@@ -53,24 +71,10 @@ function formatAddress(address) {
 
 function resolveStatusKey(status) {
   if (!status) {
-    return 'assigned'
+    return SECTION_CONFIG[0].key
   }
 
-  const normalized = status.toLowerCase()
-
-  if (normalized === 'assigned') {
-    return 'assigned'
-  }
-
-  if (normalized === 'accepted') {
-    return 'accepted'
-  }
-
-  if (normalized === 'in progress' || normalized === 'out for delivery') {
-    return 'progress'
-  }
-
-  return 'assigned'
+  return STATUS_TO_SECTION[status.toLowerCase()] ?? SECTION_CONFIG[0].key
 }
 
 export default function OrdersFeed() {
@@ -79,7 +83,7 @@ export default function OrdersFeed() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [lastUpdated, setLastUpdated] = useState(null)
-  const [view, setView] = useState(ORDER_VIEWS[0].id)
+  const [view, setView] = useState(SECTION_CONFIG[0].key)
 
   const loadOrders = useCallback(async () => {
     if (!token) {
@@ -106,12 +110,13 @@ export default function OrdersFeed() {
   }, [loadOrders])
 
   const viewConfig = useMemo(
-    () => ORDER_VIEWS.find((entry) => entry.id === view) ?? ORDER_VIEWS[0],
+    () => SECTION_CONFIG.find((entry) => entry.key === view) ?? SECTION_CONFIG[0],
     [view],
   )
 
   const displayedOrders = useMemo(() => {
-    const statusSet = new Set(viewConfig.statuses.map((status) => status.toLowerCase()))
+    const statuses = SECTION_STATUS_MAP[viewConfig.key] ?? []
+    const statusSet = new Set(statuses.map((status) => status.toLowerCase()))
 
     return orders.filter((order) => {
       if (!order.status) {
@@ -121,8 +126,6 @@ export default function OrdersFeed() {
       return statusSet.has(order.status.toLowerCase())
     })
   }, [orders, viewConfig])
-
-  const summaryLabel = viewConfig.summaryLabel ?? 'orders waiting on you'
 
   if (loading && orders.length === 0) {
     return (
@@ -154,26 +157,30 @@ export default function OrdersFeed() {
         </header>
 
         <div className="orders-tabs" role="tablist" aria-label="Order status">
-          {ORDER_VIEWS.map((option) => (
+          {SECTION_CONFIG.map((option) => (
             <button
-              key={option.id}
+              key={option.key}
               type="button"
               role="tab"
-              aria-selected={view === option.id}
-              className={['orders-tab', view === option.id ? 'active' : '']
+              aria-selected={view === option.key}
+              className={['orders-tab', view === option.key ? 'active' : '']
                 .filter(Boolean)
                 .join(' ')}
-              onClick={() => setView(option.id)}
+              onClick={() => setView(option.key)}
             >
-              {option.label}
+              {option.status}
             </button>
           ))}
         </div>
 
         <div className="orders-summary">
-          <div>
+          <div className="summary-copy">
+            <h2 className="summary-title">{viewConfig.title}</h2>
+            <p className="summary-description">{viewConfig.description}</p>
+          </div>
+          <div className="summary-metric" aria-live="polite">
             <span className="summary-count">{displayedOrders.length}</span>
-            <span className="summary-label">{summaryLabel}</span>
+            <span className="summary-label">{viewConfig.status}</span>
           </div>
           {lastUpdated ? (
             <p className="summary-meta">
@@ -191,7 +198,7 @@ export default function OrdersFeed() {
         <div className="orders-list" role="list">
           {displayedOrders.length === 0 ? (
             <div className="orders-empty" role="status">
-              <p>No {viewConfig.label.toLowerCase()} orders yet.</p>
+              <p>No {viewConfig.status.toLowerCase()} orders yet.</p>
             </div>
           ) : (
             displayedOrders.map((order) => {
