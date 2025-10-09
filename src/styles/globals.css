@@ -16,6 +16,10 @@ body {
   background: linear-gradient(135deg,#667eea,#764ba2);
 }
 
+#root {
+  min-height: 100vh;
+}
+
 a {
   color: inherit;
 }
