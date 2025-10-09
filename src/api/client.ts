@@ -1,6 +1,14 @@
 import axios from 'axios'
 
-const baseURL = import.meta.env.VITE_CMS_BASE_URL ?? 'http://127.0.0.1:4000'
+function sanitizeBaseUrl(raw?: string): string {
+  if (!raw) return 'https://api.jasonsliquor.com'
+  const trimmed = raw.trim()
+  if (!trimmed) return 'https://api.jasonsliquor.com'
+  return trimmed.replace(/\/+$/, '')
+}
+
+const sanitized = sanitizeBaseUrl(import.meta.env.VITE_API_BASE_URL)
+const baseURL = sanitized.endsWith('/api') ? sanitized : `${sanitized}/api`
 
 export const apiClient = axios.create({
   baseURL,
