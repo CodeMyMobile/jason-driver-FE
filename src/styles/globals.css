@@ -142,51 +142,105 @@ button {
 }
 
 .driver-login {
+  position: relative;
   min-height: 100vh;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px;
+  padding: 32px 16px;
+  overflow: hidden;
+}
+
+.driver-login__glow {
+  position: absolute;
+  inset: 10% 0;
+  margin: auto;
+  width: min(420px, 80vw);
+  max-width: 440px;
+  height: 70%;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.25);
+  filter: blur(80px);
+  opacity: 0.9;
 }
 
 .driver-login__panel {
+  position: relative;
   width: 100%;
   max-width: 420px;
   display: flex;
   flex-direction: column;
   gap: 28px;
+  align-items: center;
+  text-align: center;
+  color: white;
 }
 
 .driver-login__brand {
-  text-align: center;
-  color: white;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  align-items: center;
+  gap: 16px;
 }
 
 .driver-login__logo {
-  width: 100px;
-  height: 100px;
-  border-radius: 25px;
-  background: rgba(255, 255, 255, 0.15);
+  width: 88px;
+  height: 88px;
+  border-radius: 24px;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0.05) 100%);
   display: grid;
   place-items: center;
-  font-size: 48px;
-  margin: 0 auto;
-  backdrop-filter: blur(10px);
-  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.25);
+  font-size: 40px;
+  box-shadow: 0 24px 60px rgba(17, 24, 39, 0.4);
+  backdrop-filter: blur(18px);
+}
+
+.driver-login__brand-text h1 {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.driver-login__brand-text p {
+  margin: 4px 0 0;
+  font-size: 14px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  opacity: 0.85;
 }
 
 .driver-login__form {
-  background: white;
-  border-radius: 20px;
-  padding: 32px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+  width: 100%;
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: 22px;
+  padding: 34px 32px;
+  box-shadow: 0 32px 70px rgba(17, 24, 39, 0.25);
   display: flex;
   flex-direction: column;
   gap: 20px;
+  color: #1f2937;
+  backdrop-filter: blur(8px);
+}
+
+.driver-login__form-header {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: left;
+}
+
+.driver-login__form-header h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.driver-login__form-header p {
+  margin: 0;
+  font-size: 14px;
+  color: #6b7280;
 }
 
 .driver-login__field {
@@ -204,64 +258,56 @@ button {
 }
 
 .driver-login__field input {
-  border: 2px solid #e5e7eb;
-  border-radius: 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 12px;
   padding: 14px 16px;
   font-size: 16px;
   background: #f9fafb;
-  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease, background 0.3s ease;
 }
 
 .driver-login__field input:focus {
   outline: none;
-  border-color: #667eea;
-  background: white;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+  border-color: #6366f1;
+  background: #fff;
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.18);
 }
 
 .driver-login__submit {
   width: 100%;
   padding: 16px;
-  border-radius: 10px;
+  border-radius: 12px;
   border: none;
   cursor: pointer;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(145deg, #6366f1 0%, #8b5cf6 100%);
   color: white;
   font-weight: 600;
-  letter-spacing: 0.6px;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  transition: transform 0.2s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0 16px 40px rgba(99, 102, 241, 0.35);
 }
 
 .driver-login__submit:disabled {
   opacity: 0.7;
   cursor: wait;
+  box-shadow: none;
 }
 
 .driver-login__submit:not(:disabled):active {
-  transform: scale(0.98);
+  transform: translateY(1px);
 }
 
 .driver-login__helper {
   text-align: center;
-  margin-top: 8px;
-  padding-top: 20px;
-  border-top: 1px solid #e5e7eb;
+  margin-top: 4px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(209, 213, 219, 0.8);
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   font-size: 12px;
-  color: #667eea;
-}
-
-.driver-login__helper button {
-  background: transparent;
-  border: 1px solid #667eea;
-  color: #667eea;
-  padding: 8px 16px;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 12px;
+  color: #6366f1;
 }
 
 .driver-orders {
