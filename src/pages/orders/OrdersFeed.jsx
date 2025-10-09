@@ -114,6 +114,29 @@ export default function OrdersFeed() {
     [view],
   )
 
+  const sectionCounts = useMemo(() => {
+    const counts = SECTION_CONFIG.reduce((acc, section) => {
+      acc[section.key] = 0
+      return acc
+    }, {})
+
+    orders.forEach((order) => {
+      const key = resolveStatusKey(order.status)
+      counts[key] = (counts[key] ?? 0) + 1
+    })
+
+    return counts
+  }, [orders])
+
+  const maxSectionCount = useMemo(() => {
+    const values = Object.values(sectionCounts)
+    if (values.length === 0) {
+      return 1
+    }
+
+    return Math.max(1, ...values)
+  }, [sectionCounts])
+
   const displayedOrders = useMemo(() => {
     const statuses = SECTION_STATUS_MAP[viewConfig.key] ?? []
     const statusSet = new Set(statuses.map((status) => status.toLowerCase()))
@@ -173,21 +196,51 @@ export default function OrdersFeed() {
           ))}
         </div>
 
-        <div className="orders-summary">
-          <div className="summary-copy">
+        <section className="orders-summary" aria-live="polite">
+          <div className="summary-hero">
+            <span className="summary-pill">{viewConfig.status}</span>
             <h2 className="summary-title">{viewConfig.title}</h2>
             <p className="summary-description">{viewConfig.description}</p>
+            <div className="summary-hero-metric">
+              <span className="summary-count">{displayedOrders.length}</span>
+              <span className="summary-label">Active Orders</span>
+            </div>
+            {lastUpdated ? (
+              <p className="summary-meta">
+                Updated {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </p>
+            ) : (
+              <p className="summary-meta">Waiting for first refresh</p>
+            )}
           </div>
-          <div className="summary-metric" aria-live="polite">
-            <span className="summary-count">{displayedOrders.length}</span>
-            <span className="summary-label">{viewConfig.status}</span>
+
+          <div className="summary-panels" role="list">
+            {SECTION_CONFIG.map((section) => {
+              const count = sectionCounts[section.key] ?? 0
+              const progress = Math.round((count / maxSectionCount) * 100)
+
+              return (
+                <button
+                  key={section.key}
+                  type="button"
+                  role="listitem"
+                  className={["summary-panel", view === section.key ? "active" : ""].filter(Boolean).join(" ")}
+                  onClick={() => setView(section.key)}
+                  aria-pressed={view === section.key}
+                >
+                  <div className="summary-panel-header">
+                    <span className="summary-panel-label">{section.status}</span>
+                    <span className="summary-panel-count">{count}</span>
+                  </div>
+                  <p className="summary-panel-description">{section.description}</p>
+                  <div className="summary-panel-progress" aria-hidden="true">
+                    <span className="summary-panel-progress-bar" style={{ width: `${progress}%` }} />
+                  </div>
+                </button>
+              )
+            })}
           </div>
-          {lastUpdated ? (
-            <p className="summary-meta">
-              Updated {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-            </p>
-          ) : null}
-        </div>
+        </section>
 
         {error ? (
           <div className="form-error" role="alert">
