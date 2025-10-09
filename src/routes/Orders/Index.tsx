@@ -27,7 +27,9 @@ export default function OrdersRoute(): JSX.Element {
   const segmented = useMemo(() => {
     const isAssignedToDriver = (order: Order) => {
       if (!driver) return true
-      if (order.assignedDriverId == null) return false
+      if (order.assignedDriverId == null || String(order.assignedDriverId).trim() === '') {
+        return true
+      }
       return String(order.assignedDriverId) === String(driver.id)
     }
 

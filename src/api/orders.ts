@@ -242,26 +242,97 @@ function extractBoolean(value: unknown): boolean {
   return false
 }
 
+function toStringId(value: unknown): string | undefined {
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    return trimmed ? trimmed : undefined
+  }
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return String(value)
+  }
+  return undefined
+}
+
+function extractDriverIdValue(value: unknown): string | undefined {
+  if (!value) {
+    return undefined
+  }
+  const direct = toStringId(value)
+  if (direct) {
+    return direct
+  }
+  if (Array.isArray(value)) {
+    for (const entry of value) {
+      const nestedId = extractDriverIdValue(entry)
+      if (nestedId) {
+        return nestedId
+      }
+    }
+    return undefined
+  }
+  if (typeof value === 'object') {
+    const record = value as Record<string, unknown>
+    const directKeys = ['id', '_id', 'driverId', 'driver_id', 'driverID', 'uuid', 'guid']
+    for (const key of directKeys) {
+      const candidate = record[key]
+      const stringId = toStringId(candidate)
+      if (stringId) {
+        return stringId
+      }
+    }
+    const nestedKeys = [
+      'driver',
+      'driverInfo',
+      'driver_info',
+      'assignedDriver',
+      'assigned_driver',
+      'assignedTo',
+      'assigned_to',
+      'assignee',
+      'user',
+      'data',
+      'details',
+      'profile',
+      'info',
+      'attributes',
+    ]
+    for (const key of nestedKeys) {
+      const nested = record[key]
+      const stringId = extractDriverIdValue(nested)
+      if (stringId) {
+        return stringId
+      }
+    }
+    return undefined
+  }
+  return undefined
+}
+
 function extractDriverId(data: RawOrder): string | undefined {
-  const id =
-    data.assignedDriverId ??
-    data.assigned_driver_id ??
-    data.driverId ??
-    data.driver_id ??
-    data.driverID ??
-    data.driver ??
-    data.driverUuid ??
-    data.driver_uuid
-  if (typeof id === 'object' && id && 'id' in (id as Record<string, unknown>)) {
-    return String((id as Record<string, unknown>).id ?? '') || undefined
+  const record = data as Record<string, unknown>
+  const keys = [
+    'assignedDriverId',
+    'assigned_driver_id',
+    'driverId',
+    'driver_id',
+    'driverID',
+    'driverUuid',
+    'driver_uuid',
+    'assignedDriver',
+    'assigned_driver',
+    'assignedTo',
+    'assigned_to',
+    'assignee',
+    'driver',
+  ]
+
+  for (const key of keys) {
+    const candidate = extractDriverIdValue(record[key])
+    if (candidate) {
+      return candidate
+    }
   }
-  if (typeof id === 'object' && id && '_id' in (id as Record<string, unknown>)) {
-    return String((id as Record<string, unknown>)._id ?? '') || undefined
-  }
-  if (typeof id === 'string' || typeof id === 'number') {
-    const stringId = String(id)
-    return stringId ? stringId : undefined
-  }
+
   return undefined
 }
 
