@@ -1,10 +1,4 @@
-interface VerifyChecklistProps {
-  idChecked: boolean
-  paymentChecked: boolean
-  onChange: (next: { idChecked: boolean; paymentChecked: boolean }) => void
-}
-
-export function VerifyChecklist({ idChecked, paymentChecked, onChange }: VerifyChecklistProps): JSX.Element {
+export default function VerifyChecklist({ idChecked, paymentChecked, onChange }) {
   return (
     <div className="verify-section">
       <div className="verify-header">

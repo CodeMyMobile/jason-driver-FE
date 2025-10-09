@@ -1,17 +1,12 @@
-import { Order } from '../types'
-import { getElapsedMinutes } from '../api/orders'
+import { getElapsedMinutes } from '../api/orders.ts'
 
-interface TimerChipProps {
-  order: Order
-}
-
-function formatDuration(minutes: number): string {
+function formatDuration(minutes) {
   const wholeMinutes = Math.floor(minutes)
   const seconds = Math.floor((minutes - wholeMinutes) * 60)
   return `${wholeMinutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
 }
 
-export function TimerChip({ order }: TimerChipProps): JSX.Element {
+export default function TimerChip({ order }) {
   const elapsed = getElapsedMinutes(order)
   const variant = elapsed < 20 ? 'normal' : elapsed < 35 ? 'warning' : 'priority'
 

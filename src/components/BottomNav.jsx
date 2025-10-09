@@ -1,6 +1,6 @@
 import { NavLink } from 'react-router-dom'
 
-export function BottomNav(): JSX.Element {
+export default function BottomNav() {
   return (
     <nav className="driver-shell__nav">
       <NavLink

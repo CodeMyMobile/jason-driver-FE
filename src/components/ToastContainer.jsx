@@ -1,6 +1,6 @@
-import { useToast } from '../hooks/useToast'
+import { useToast } from '../hooks/useToast.jsx'
 
-export function ToastContainer(): JSX.Element {
+export default function ToastContainer() {
   const { toasts, dismiss } = useToast()
 
   return (
@@ -11,7 +11,12 @@ export function ToastContainer(): JSX.Element {
             <strong>{toast.title}</strong>
             {toast.description ? <p>{toast.description}</p> : null}
           </div>
-          <button type="button" className="toast-close" onClick={() => dismiss(toast.id)} aria-label="Dismiss">
+          <button
+            type="button"
+            className="toast-close"
+            onClick={() => dismiss(toast.id)}
+            aria-label="Dismiss"
+          >
             ×
           </button>
         </div>

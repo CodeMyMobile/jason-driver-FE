@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useOrders } from '../../hooks/useOrders'
-import { Tabs } from '../../components/Tabs'
-import { OrderCard } from './OrderCard'
-import { OrderDetail } from './OrderDetail'
-import { CompletedOrderCard } from './CompletedOrderCard'
-import { Order } from '../../types'
-import { useToast } from '../../hooks/useToast'
-import { useAuth } from '../../hooks/useAuth'
+import { useOrders } from '../../hooks/useOrders.jsx'
+import Tabs from '../../components/Tabs.jsx'
+import OrderCard from './OrderCard.jsx'
+import OrderDetail from './OrderDetail.jsx'
+import CompletedOrderCard from './CompletedOrderCard.jsx'
+import { useToast } from '../../hooks/useToast.jsx'
+import { useAuth } from '../../hooks/useAuth.jsx'
 
 const tabConfig = [
   { id: 'assigned', label: 'Assigned' },
@@ -14,14 +13,12 @@ const tabConfig = [
   { id: 'out-for-delivery', label: 'Out for delivery' },
 ]
 
-type TabId = (typeof tabConfig)[number]['id']
-
-export default function OrdersRoute(): JSX.Element {
+export default function OrdersRoute() {
   const { orders, accept, markArrived, markComplete } = useOrders()
   const { push } = useToast()
   const { driver } = useAuth()
-  const [activeTab, setActiveTab] = useState<TabId>('assigned')
-  const [expandedCompletedId, setExpandedCompletedId] = useState<string | undefined>(undefined)
+  const [activeTab, setActiveTab] = useState('assigned')
+  const [expandedCompletedId, setExpandedCompletedId] = useState()
   const [completedVisibleCount, setCompletedVisibleCount] = useState(10)
 
   const segmented = useMemo(() => {
@@ -50,9 +47,7 @@ export default function OrdersRoute(): JSX.Element {
         if (!driver) return true
         return order.assignedDriverId === driver.id
       })
-      .sort(
-        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-      )
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     return { assigned, accepted, outForDelivery, completed }
   }, [driver, orders])
 
@@ -63,17 +58,17 @@ export default function OrdersRoute(): JSX.Element {
 
   const canShowMoreCompleted = segmented.completed.length > completedVisibleCount
 
-  const handleAccept = async (order: Order) => {
+  const handleAccept = async (order) => {
     await accept(order.id)
     setActiveTab('accepted')
   }
 
-  const handleArrive = async (orderId: string) => {
+  const handleArrive = async (orderId) => {
     await markArrived(orderId)
     setActiveTab('out-for-delivery')
   }
 
-  const handleComplete = async (orderId: string, signature: string) => {
+  const handleComplete = async (orderId, signature) => {
     await markComplete(orderId, signature)
     push({ title: 'Signature captured', description: 'Delivery is complete.', variant: 'success' })
   }
@@ -123,7 +118,7 @@ export default function OrdersRoute(): JSX.Element {
               : undefined,
         }))}
         activeId={activeTab}
-        onChange={(id) => setActiveTab(id as TabId)}
+        onChange={(id) => setActiveTab(id)}
       />
       {activeTab === 'assigned' ? (
         <div className="orders-section">
@@ -183,9 +178,7 @@ export default function OrdersRoute(): JSX.Element {
                       order={order}
                       expanded={expandedCompletedId === order.id}
                       onToggle={(next) =>
-                        setExpandedCompletedId((current) =>
-                          current === next.id ? undefined : next.id,
-                        )
+                        setExpandedCompletedId((current) => (current === next.id ? undefined : next.id))
                       }
                       onArrive={handleArrive}
                       onComplete={handleComplete}

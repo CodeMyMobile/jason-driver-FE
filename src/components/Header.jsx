@@ -1,19 +1,14 @@
 import { Link } from 'react-router-dom'
-import { DriverStatus } from '../types'
-import { useAuth } from '../hooks/useAuth'
-import { classNames } from '../utils/classNames'
+import { useAuth } from '../hooks/useAuth.jsx'
+import { classNames } from '../utils/classNames.ts'
 
-interface HeaderProps {
-  trackingActive: boolean
-}
-
-const statusLabels: Record<DriverStatus, string> = {
+const statusLabels = {
   ONLINE: 'Online',
   OFFLINE: 'Offline',
   ON_DELIVERY: 'On Delivery',
 }
 
-export function Header({ trackingActive }: HeaderProps): JSX.Element {
+export default function Header({ trackingActive }) {
   const { driver } = useAuth()
 
   return (

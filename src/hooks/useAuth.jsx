@@ -1,33 +1,15 @@
-import {
-  PropsWithChildren,
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-} from 'react'
-import { getCurrentDriver, login as loginApi, updateDriverStatus } from '../api/auth'
-import { apiClient } from '../api/client'
-import { Driver, DriverStatus } from '../types'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { getCurrentDriver, login as loginApi, updateDriverStatus } from '../api/auth.ts'
+import { apiClient } from '../api/client.ts'
 
-interface AuthContextValue {
-  driver?: Driver
-  token?: string
-  loading: boolean
-  login: (email: string, password: string) => Promise<void>
-  logout: () => void
-  setStatus: (status: DriverStatus) => Promise<void>
-}
-
-const AuthContext = createContext<AuthContextValue | undefined>(undefined)
+const AuthContext = createContext(undefined)
 
 const TOKEN_KEY = 'jason-driver-token'
 const DRIVER_KEY = 'jason-driver-profile'
 
-export function AuthProvider({ children }: PropsWithChildren): JSX.Element {
-  const [driver, setDriver] = useState<Driver | undefined>(undefined)
-  const [token, setToken] = useState<string | undefined>(undefined)
+export function AuthProvider({ children }) {
+  const [driver, setDriver] = useState()
+  const [token, setToken] = useState()
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -39,7 +21,7 @@ export function AuthProvider({ children }: PropsWithChildren): JSX.Element {
     }
     if (storedDriver) {
       try {
-        setDriver(JSON.parse(storedDriver) as Driver)
+        setDriver(JSON.parse(storedDriver))
       } catch (error) {
         console.warn('Failed to parse stored driver', error)
       }
@@ -47,7 +29,7 @@ export function AuthProvider({ children }: PropsWithChildren): JSX.Element {
     setLoading(false)
   }, [])
 
-  const persist = useCallback((nextDriver: Driver, nextToken?: string) => {
+  const persist = useCallback((nextDriver, nextToken) => {
     setDriver(nextDriver)
     if (nextToken) {
       setToken(nextToken)
@@ -57,15 +39,18 @@ export function AuthProvider({ children }: PropsWithChildren): JSX.Element {
     sessionStorage.setItem(DRIVER_KEY, JSON.stringify(nextDriver))
   }, [])
 
-  const login = useCallback(async (email: string, password: string) => {
-    setLoading(true)
-    try {
-      const response = await loginApi({ email, password })
-      persist(response.driver, response.token)
-    } finally {
-      setLoading(false)
-    }
-  }, [persist])
+  const login = useCallback(
+    async (email, password) => {
+      setLoading(true)
+      try {
+        const response = await loginApi({ email, password })
+        persist(response.driver, response.token)
+      } finally {
+        setLoading(false)
+      }
+    },
+    [persist],
+  )
 
   const logout = useCallback(() => {
     setDriver(undefined)
@@ -95,13 +80,16 @@ export function AuthProvider({ children }: PropsWithChildren): JSX.Element {
     bootstrap()
   }, [logout, persist, token])
 
-  const setStatus = useCallback(async (status: DriverStatus) => {
-    if (!driver) return
-    const updated = await updateDriverStatus(status)
-    persist(updated, token)
-  }, [driver, persist, token])
+  const setStatus = useCallback(
+    async (status) => {
+      if (!driver) return
+      const updated = await updateDriverStatus(status)
+      persist(updated, token)
+    },
+    [driver, persist, token],
+  )
 
-  const value = useMemo<AuthContextValue>(
+  const value = useMemo(
     () => ({ driver, token, loading, login, logout, setStatus }),
     [driver, token, loading, login, logout, setStatus],
   )
@@ -109,7 +97,7 @@ export function AuthProvider({ children }: PropsWithChildren): JSX.Element {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
-export function useAuth(): AuthContextValue {
+export function useAuth() {
   const context = useContext(AuthContext)
   if (!context) {
     throw new Error('useAuth must be used within AuthProvider')

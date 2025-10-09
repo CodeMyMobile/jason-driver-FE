@@ -1,16 +1,8 @@
-import { Order } from '../../types'
-import { formatCurrency, getInitials } from '../../utils/format'
-import { TimerChip } from '../../components/TimerChip'
-import { classNames } from '../../utils/classNames'
+import { formatCurrency, getInitials } from '../../utils/format.ts'
+import TimerChip from '../../components/TimerChip.jsx'
+import { classNames } from '../../utils/classNames.ts'
 
-interface OrderCardProps {
-  order: Order
-  onAccept?: (order: Order) => void
-  onSelect?: (order: Order) => void
-  isSelected?: boolean
-}
-
-export function OrderCard({ order, onAccept, onSelect, isSelected }: OrderCardProps): JSX.Element {
+export default function OrderCard({ order, onAccept, onSelect, isSelected }) {
   const isPending = order.status === 'NEW'
   const statusLabel = order.status === 'COMPLETED' ? 'Completed' : undefined
   const isSelectable = Boolean(onSelect)

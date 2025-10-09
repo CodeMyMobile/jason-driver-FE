@@ -1,9 +1,9 @@
-import { FormEvent, useState } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAuth } from '../hooks/useAuth'
-import { useToast } from '../hooks/useToast'
+import { useAuth } from '../hooks/useAuth.jsx'
+import { useToast } from '../hooks/useToast.jsx'
 
-export default function LoginRoute(): JSX.Element {
+export default function LoginRoute() {
   const { login } = useAuth()
   const navigate = useNavigate()
   const { push } = useToast()
@@ -11,7 +11,7 @@ export default function LoginRoute(): JSX.Element {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
 
-  async function handleSubmit(event: FormEvent) {
+  async function handleSubmit(event) {
     event.preventDefault()
     setLoading(true)
     try {
