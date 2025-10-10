@@ -1,14 +1,4 @@
-import { useCallback } from 'react'
-import {
-  Link,
-  Navigate,
-  NavLink,
-  Outlet,
-  Route,
-  Routes,
-  useLocation,
-  useNavigate,
-} from 'react-router-dom'
+import { Link, Navigate, NavLink, Outlet, Route, Routes } from 'react-router-dom'
 import ProtectedRoute from './components/ProtectedRoute.jsx'
 import { useAuth } from './context/AuthContext.jsx'
 import LoginPage from './pages/Login.jsx'
@@ -22,58 +12,53 @@ import OrderCancel from './pages/orders/OrderCancel.jsx'
 import './App.css'
 
 function AppLayout() {
-  const { user, logout } = useAuth()
-  const navigate = useNavigate()
-  const location = useLocation()
-
-  const handleLogout = useCallback(() => {
-    logout()
-    navigate('/login', { replace: true })
-  }, [logout, navigate])
-
-  const isSettingsRoute = location.pathname.startsWith('/settings')
+  const { user } = useAuth()
 
   const navItems = [
-    { to: '/orders', label: 'Orders' },
-    { to: '/settings', label: 'Settings' },
+    { to: '/orders', label: 'Orders', icon: 'orders' },
+    { to: '/settings', label: 'Profile', icon: 'profile' },
   ]
 
   return (
-    <div className="app-shell">
-      <header className="app-bar">
-        <div className="app-bar-left">
-          <Link to="/orders" className="brand" aria-label="Jason's Liquor driver portal">
-            Jason&apos;s Liquor Drivers
+    <div className="app-surface">
+      <div className="app-panel">
+        <header className="app-header">
+          <Link to="/orders" className="brand" aria-label="Jason's Delivery home">
+            <span className="brand-icon" aria-hidden="true" />
+            <span className="brand-text">
+              <span className="brand-title">Jason&apos;s Delivery</span>
+              <span className="brand-subtitle">Drivers &amp; Partners</span>
+            </span>
           </Link>
-          <nav className="app-nav" aria-label="Primary">
-            {navItems.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                className={({ isActive }) =>
-                  ['app-nav-link', isActive ? 'active' : ''].filter(Boolean).join(' ')
-                }
-                end={item.to === '/settings'}
-              >
-                {item.label}
-              </NavLink>
-            ))}
-          </nav>
-        </div>
-        <div className="app-bar-actions">
-          {isSettingsRoute ? (
-            <div className="user-meta">
-              <span className="user-name">{user?.name?.first} {user?.name?.last}</span>
-              <span className="user-email">{user?.email}</span>
+          {user ? (
+            <div className="header-user">
+              <span className="header-user-name">{user?.name?.first} {user?.name?.last}</span>
+              <span className="header-user-email">{user?.email}</span>
             </div>
           ) : null}
-          <button type="button" className="link-button" onClick={handleLogout}>
-            Log out
-          </button>
+        </header>
+
+        <div className="app-body">
+          <Outlet />
         </div>
-      </header>
-      <div className="app-content">
-        <Outlet />
+
+        <nav className="tab-bar" aria-label="Main navigation">
+          {navItems.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              className={({ isActive }) =>
+                ['tab-bar-item', isActive ? 'active' : '', `icon-${item.icon}`]
+                  .filter(Boolean)
+                  .join(' ')
+              }
+              end={item.to === '/settings'}
+            >
+              <span className="tab-icon" aria-hidden="true" />
+              <span className="tab-label">{item.label}</span>
+            </NavLink>
+          ))}
+        </nav>
       </div>
     </div>
   )

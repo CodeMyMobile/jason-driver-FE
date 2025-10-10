@@ -62,55 +62,63 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="screen login-screen">
-      <section className="card login-card">
-        <header className="card-header">
-          <h1 className="card-title">Driver Login</h1>
-          <p className="card-subtitle">Sign in with your driver credentials to continue.</p>
+    <main className="auth-surface">
+      <section className="auth-panel" aria-labelledby="login-title">
+        <header className="auth-panel-header">
+          <div className="brand-icon" aria-hidden="true" />
+          <p className="brand-title" id="login-title">
+            Jason&apos;s Delivery
+          </p>
+          <p className="brand-subtitle">Drivers &amp; Partners</p>
         </header>
 
-        <form className="form" onSubmit={handleSubmit}>
-          <label className="form-field">
-            <span className="form-label">Email</span>
-            <input
-              type="email"
-              name="email"
-              autoComplete="email"
-              inputMode="email"
-              value={email}
-              onChange={handleEmailChange}
-              className="form-input"
-              placeholder="driver@email.com"
-              disabled={authenticating}
-              required
-            />
-          </label>
+        <div className="auth-card">
+          <h2 className="auth-card-title">Sign in to continue</h2>
+          <p className="auth-card-subtitle">Access your deliveries and keep your route moving.</p>
 
-          <label className="form-field">
-            <span className="form-label">Password</span>
-            <input
-              type="password"
-              name="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={handlePasswordChange}
-              className="form-input"
-              placeholder="Enter your password"
-              disabled={authenticating}
-              required
-            />
-          </label>
+          <form className="auth-form" onSubmit={handleSubmit}>
+            <label className="form-field">
+              <span className="form-label">Email</span>
+              <input
+                type="email"
+                name="email"
+                autoComplete="email"
+                inputMode="email"
+                value={email}
+                onChange={handleEmailChange}
+                className="form-input"
+                placeholder="driver@email.com"
+                disabled={authenticating}
+                required
+              />
+            </label>
 
-          {localError ? (
-            <p className="form-error" role="alert">
-              {localError}
-            </p>
-          ) : null}
+            <label className="form-field">
+              <span className="form-label">Password</span>
+              <input
+                type="password"
+                name="password"
+                autoComplete="current-password"
+                value={password}
+                onChange={handlePasswordChange}
+                className="form-input"
+                placeholder="Enter your password"
+                disabled={authenticating}
+                required
+              />
+            </label>
 
-          <button type="submit" className="form-button" disabled={authenticating}>
-            {authenticating ? 'Signing in…' : 'Sign in'}
-          </button>
-        </form>
+            {localError ? (
+              <p className="form-error" role="alert">
+                {localError}
+              </p>
+            ) : null}
+
+            <button type="submit" className="primary-button" disabled={authenticating}>
+              {authenticating ? 'Signing in…' : 'Sign in'}
+            </button>
+          </form>
+        </div>
       </section>
     </main>
   )

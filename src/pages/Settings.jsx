@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
 export default function SettingsPage() {
-  const { user, updateProfile, loadOverallRating, authenticating } = useAuth()
+  const { user, updateProfile, loadOverallRating, authenticating, logout } = useAuth()
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [email, setEmail] = useState('')
@@ -11,6 +12,8 @@ export default function SettingsPage() {
   const [feedback, setFeedback] = useState('')
   const [error, setError] = useState('')
   const [rating, setRating] = useState(null)
+  const [status, setStatus] = useState('offline')
+  const navigate = useNavigate()
 
   const driverId = useMemo(() => user?._id || user?.id, [user])
 
@@ -110,14 +113,57 @@ export default function SettingsPage() {
   }
 
   return (
-    <main className="screen settings-screen">
-      <section className="card profile-card">
-        <header className="card-header">
-          <h1 className="card-title">Driver Profile</h1>
-          <p className="card-subtitle">Update your details to keep dispatch informed.</p>
+    <main className="profile-surface">
+      <section className="profile-card" aria-labelledby="profile-title">
+        <header className="profile-header">
+          <h1 className="profile-title" id="profile-title">
+            Driver Profile
+          </h1>
+          <p className="profile-subtitle">Keep your dispatcher in the loop and stay delivery ready.</p>
         </header>
 
-        <form className="form" onSubmit={handleSubmit}>
+        <div className="profile-overview">
+          <div>
+            <p className="profile-name">{[firstName, lastName].filter(Boolean).join(' ') || 'Driver name'}</p>
+            <p className="profile-contact">{email || 'Add your email'}</p>
+            <p className="profile-contact">{phone || 'Add your phone number'}</p>
+          </div>
+          <div className="profile-rating" role="group" aria-label="Overall rating">
+            <span className="rating-value">{formattedRating}</span>
+            <span className="rating-label">Overall rating</span>
+          </div>
+        </div>
+
+        <section className="status-section" aria-label="Availability status">
+          <div className="section-heading">
+            <h2>Status</h2>
+            <p>Select your availability for dispatch.</p>
+          </div>
+          <div className="status-toggle" role="radiogroup" aria-label="Driver status">
+            <button
+              type="button"
+              className={['toggle-button', status === 'offline' ? 'active' : ''].filter(Boolean).join(' ')}
+              onClick={() => setStatus('offline')}
+              aria-pressed={status === 'offline'}
+            >
+              Offline
+            </button>
+            <button
+              type="button"
+              className={['toggle-button', status === 'drive' ? 'active' : ''].filter(Boolean).join(' ')}
+              onClick={() => setStatus('drive')}
+              aria-pressed={status === 'drive'}
+            >
+              Drive
+            </button>
+          </div>
+        </section>
+
+        <form className="profile-form" onSubmit={handleSubmit}>
+          <div className="section-heading">
+            <h2>Driver details</h2>
+            <p>Double-check your information before heading out.</p>
+          </div>
           <div className="form-grid">
             <label className="form-field">
               <span className="form-label">First name</span>
@@ -173,15 +219,11 @@ export default function SettingsPage() {
             </label>
           </div>
 
-          <section className="rating">
-            <div className="rating-header">
-              <span className="rating-title">Overall rating</span>
-              <span className="rating-score">{formattedRating}</span>
+          <section className="rating-card">
+            <div className="rating-track" aria-hidden="true">
+              <div className="rating-track-fill" style={{ width: `${ratingPercentage}%` }} />
             </div>
-            <div className="rating-bar" aria-hidden="true">
-              <div className="rating-bar-fill" style={{ width: `${ratingPercentage}%` }} />
-            </div>
-            <span className="rating-hint">Scores are out of 5.</span>
+            <p className="rating-hint">Scores are calculated out of 5.</p>
           </section>
 
           {feedback ? (
@@ -196,10 +238,27 @@ export default function SettingsPage() {
             </p>
           ) : null}
 
-          <button type="submit" className="form-button" disabled={isSaving || authenticating}>
+          <button type="submit" className="primary-button" disabled={isSaving || authenticating}>
             {isSaving ? 'Saving…' : 'Save changes'}
           </button>
         </form>
+
+        <section className="session-card" aria-label="Session controls">
+          <div className="section-heading">
+            <h2>Session</h2>
+            <p>Wrap up when you&apos;re done for the day.</p>
+          </div>
+          <button
+            type="button"
+            className="danger-button"
+            onClick={() => {
+              logout()
+              navigate('/login', { replace: true })
+            }}
+          >
+            Sign out
+          </button>
+        </section>
       </section>
     </main>
   )
