@@ -4,40 +4,30 @@ import { useAuth } from '../../context/AuthContext'
 import { fetchOrders } from '../../services/orderService'
 import './Orders.css'
 
-const SECTION_CONFIG = [
+const COLUMN_CONFIG = [
   {
-    key: 'assigned',
-    status: 'Assigned',
-    title: 'Assigned Orders',
-    description: 'Orders that are ready for you to accept.',
+    key: 'pending',
+    title: 'Pending',
+    description: 'Orders that are waiting for you to accept them.',
+    statuses: ['Assigned'],
   },
   {
-    key: 'accepted',
-    status: 'Accepted',
-    title: 'Accepted Orders',
-    description: 'Orders that are waiting to start delivery.',
+    key: 'active',
+    title: 'Active',
+    description: 'Orders that are currently out for delivery.',
+    statuses: ['Accepted', 'In Progress', 'Out for delivery'],
   },
   {
-    key: 'progress',
-    status: 'In Progress',
-    title: 'Out for Delivery',
-    description: 'Orders that are currently on the way.',
+    key: 'completed',
+    title: 'Completed',
+    description: 'Orders that you have already delivered.',
+    statuses: ['Completed', 'Delivered'],
   },
 ]
 
-const SECTION_STATUS_MAP = SECTION_CONFIG.reduce((acc, section) => {
-  if (section.key === 'progress') {
-    acc[section.key] = [section.status, 'Out for delivery']
-  } else {
-    acc[section.key] = [section.status]
-  }
-
-  return acc
-}, {})
-
-const STATUS_TO_SECTION = Object.entries(SECTION_STATUS_MAP).reduce((acc, [key, statuses]) => {
-  statuses.forEach((status) => {
-    acc[status.toLowerCase()] = key
+const STATUS_TO_COLUMN = COLUMN_CONFIG.reduce((acc, column) => {
+  column.statuses.forEach((status) => {
+    acc[status.toLowerCase()] = column.key
   })
 
   return acc
@@ -69,12 +59,94 @@ function formatAddress(address) {
   return parts.join(', ') || 'No address on file'
 }
 
-function resolveStatusKey(status) {
+function resolveColumnKey(status) {
   if (!status) {
-    return SECTION_CONFIG[0].key
+    return COLUMN_CONFIG[0].key
   }
 
-  return STATUS_TO_SECTION[status.toLowerCase()] ?? SECTION_CONFIG[0].key
+  return STATUS_TO_COLUMN[status.toLowerCase()] ?? COLUMN_CONFIG[0].key
+}
+
+function resolveRouteKey(status) {
+  if (!status) {
+    return 'assigned'
+  }
+
+  const normalized = status.toLowerCase()
+
+  if (normalized === 'assigned') {
+    return 'assigned'
+  }
+
+  if (normalized === 'accepted') {
+    return 'accepted'
+  }
+
+  if (normalized === 'in progress' || normalized === 'out for delivery') {
+    return 'progress'
+  }
+
+  if (normalized === 'completed' || normalized === 'delivered') {
+    return 'completed'
+  }
+
+  return 'assigned'
+}
+
+function formatOrderCode(order) {
+  const reference = order?.orderCode || order?.orderId || order?.number || order?.reference
+
+  if (reference) {
+    return `#${String(reference).toUpperCase()}`
+  }
+
+  if (order?._id) {
+    const suffix = String(order._id).slice(-6)
+    return `#${suffix.toUpperCase()}`
+  }
+
+  return '#Order'
+}
+
+function resolveInitials(name) {
+  if (!name) {
+    return '??'
+  }
+
+  const parts = name.split(' ').filter(Boolean)
+
+  if (parts.length === 0) {
+    return name.slice(0, 2).toUpperCase()
+  }
+
+  if (parts.length === 1) {
+    return parts[0].slice(0, 2).toUpperCase()
+  }
+
+  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase()
+}
+
+function countOrderItems(order) {
+  if (!order?.qty || !Array.isArray(order.qty)) {
+    return 0
+  }
+
+  return order.qty.reduce((sum, value) => sum + (Number(value) || 0), 0)
+}
+
+function formatCurrency(value) {
+  if (value == null || Number.isNaN(Number(value))) {
+    return null
+  }
+
+  const amount = Number(value)
+
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(amount)
 }
 
 export default function OrdersFeed() {
@@ -82,9 +154,6 @@ export default function OrdersFeed() {
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [lastUpdated, setLastUpdated] = useState(null)
-  const [view, setView] = useState(SECTION_CONFIG[0].key)
-
   const loadOrders = useCallback(async () => {
     if (!token) {
       return
@@ -96,7 +165,6 @@ export default function OrdersFeed() {
     try {
       const data = await fetchOrders(token)
       setOrders(Array.isArray(data) ? data : [])
-      setLastUpdated(new Date())
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unable to load orders.'
       setError(message)
@@ -109,63 +177,25 @@ export default function OrdersFeed() {
     loadOrders()
   }, [loadOrders])
 
-  const viewConfig = useMemo(
-    () => SECTION_CONFIG.find((entry) => entry.key === view) ?? SECTION_CONFIG[0],
-    [view],
-  )
-
-  const sectionCounts = useMemo(() => {
-    const counts = SECTION_CONFIG.reduce((acc, section) => {
-      acc[section.key] = 0
+  const countsByColumn = useMemo(() => {
+    return orders.reduce((acc, order) => {
+      const columnKey = resolveColumnKey(order.status)
+      acc[columnKey] = (acc[columnKey] ?? 0) + 1
       return acc
     }, {})
-
-    orders.forEach((order) => {
-      const key = resolveStatusKey(order.status)
-      counts[key] = (counts[key] ?? 0) + 1
-    })
-
-    return counts
   }, [orders])
 
-  const displayedOrders = useMemo(() => {
-    const statuses = SECTION_STATUS_MAP[viewConfig.key] ?? []
-    const statusSet = new Set(statuses.map((status) => status.toLowerCase()))
-
-    return orders.filter((order) => {
-      if (!order.status) {
-        return false
+  const ordersByColumn = useMemo(() => {
+    return orders.reduce((acc, order) => {
+      const columnKey = resolveColumnKey(order.status)
+      if (!acc[columnKey]) {
+        acc[columnKey] = []
       }
 
-      return statusSet.has(order.status.toLowerCase())
-    })
-  }, [orders, viewConfig])
-
-  const totalOrders = useMemo(() => orders.length, [orders])
-
-  const busiestSection = useMemo(() => {
-    return SECTION_CONFIG.reduce(
-      (acc, section) => {
-        const count = sectionCounts[section.key] ?? 0
-
-        if (!acc || count > acc.count) {
-          return { ...section, count }
-        }
-
-        return acc
-      },
-      null,
-    )
-  }, [sectionCounts])
-
-  const calmestSection = useMemo(() => {
-    const sorted = SECTION_CONFIG.map((section) => ({
-      ...section,
-      count: sectionCounts[section.key] ?? 0,
-    })).sort((a, b) => a.count - b.count)
-
-    return sorted[0]
-  }, [sectionCounts])
+      acc[columnKey].push(order)
+      return acc
+    }, {})
+  }, [orders])
 
   if (loading && orders.length === 0) {
     return (
@@ -177,7 +207,7 @@ export default function OrdersFeed() {
 
   return (
     <div className="orders-surface">
-      <section className="orders-card" aria-labelledby="orders-title">
+      <section className="orders-board" aria-labelledby="orders-title">
         <header className="orders-header">
           <div>
             <h1 className="orders-title" id="orders-title">
@@ -196,56 +226,94 @@ export default function OrdersFeed() {
           </button>
         </header>
 
-        <div className="orders-tabs" role="tablist" aria-label="Order status">
-          {SECTION_CONFIG.map((option) => (
-            <button
-              key={option.key}
-              type="button"
-              role="tab"
-              aria-selected={view === option.key}
-              className={['orders-tab', view === option.key ? 'active' : '']
-                .filter(Boolean)
-                .join(' ')}
-              onClick={() => setView(option.key)}
-            >
-              {option.status}
-            </button>
-          ))}
-        </div>
-
-       
         {error ? (
           <div className="form-error" role="alert">
             {error}
           </div>
         ) : null}
 
-        <div className="orders-list" role="list">
-          {displayedOrders.length === 0 ? (
-            <div className="orders-empty" role="status">
-              <p>No {viewConfig.status.toLowerCase()} orders yet.</p>
-            </div>
-          ) : (
-            displayedOrders.map((order) => {
-              const sectionKey = resolveStatusKey(order.status)
+        <div className="orders-columns">
+          {COLUMN_CONFIG.map((column) => {
+            const columnOrders = ordersByColumn[column.key] ?? []
+            const columnCount = countsByColumn[column.key] ?? 0
 
-              return (
-                <Link
-                  key={order._id}
-                  className="order-item"
-                  to={`/orders/${sectionKey}/${order._id}`}
-                  state={{ order }}
-                >
-                  <div className="order-item-body">
-                    <p className="order-item-title">{formatName(order.owner)}</p>
-                    <p className="order-item-meta">{formatAddress(order.address)}</p>
+            return (
+              <section key={column.key} className="orders-column" aria-labelledby={`${column.key}-title`}>
+                <header className="orders-column-header">
+                  <div className="orders-column-copy">
+                    <h2 className="orders-column-title" id={`${column.key}-title`}>
+                      {column.title}
+                    </h2>
+                    <p className="orders-column-subtitle">{column.description}</p>
                   </div>
-                  <span className="order-item-status">{order.status}</span>
-                  <span className="order-item-chevron" aria-hidden="true" />
-                </Link>
-              )
-            })
-          )}
+                  <span className="orders-column-count" aria-label={`${column.title} count`}>
+                    {columnCount}
+                  </span>
+                </header>
+
+                <div className="orders-column-body" role="list">
+                  {columnOrders.length === 0 ? (
+                    <div className="orders-column-empty" role="status">
+                      <p>No {column.title.toLowerCase()} orders yet.</p>
+                    </div>
+                  ) : (
+                    columnOrders.map((order) => {
+                      const customerName = formatName(order.owner)
+                      const initials = resolveInitials(customerName)
+                      const itemsCount = countOrderItems(order)
+                      const formattedTotal = formatCurrency(order.total)
+                      const routeKey = resolveRouteKey(order.status)
+
+                      return (
+                        <Link
+                          key={order._id}
+                          className="order-card"
+                          to={`/orders/${routeKey}/${order._id}`}
+                          state={{ order }}
+                          role="listitem"
+                        >
+                          <div className="order-card-header">
+                            <div className="order-card-title-group">
+                              <span className="order-card-label">Order</span>
+                              <span className="order-card-code">{formatOrderCode(order)}</span>
+                            </div>
+                            <span className={`order-status-tag ${column.key}`}>
+                              {order.status ?? column.title}
+                            </span>
+                          </div>
+
+                          <div className="order-card-body">
+                            <div className="order-card-customer">
+                              <span className="order-card-avatar" aria-hidden="true">
+                                {initials}
+                              </span>
+                              <div>
+                                <p className="order-card-name">{customerName}</p>
+                                {order.owner?.phone ? (
+                                  <p className="order-card-meta">{order.owner.phone}</p>
+                                ) : null}
+                              </div>
+                            </div>
+
+                            <div className="order-card-address">
+                              <p>{formatAddress(order.address)}</p>
+                            </div>
+
+                            <div className="order-card-stats">
+                              <span>{itemsCount} item{itemsCount === 1 ? '' : 's'}</span>
+                              {formattedTotal ? <span>{formattedTotal}</span> : null}
+                            </div>
+                          </div>
+
+                          <span className="order-card-cta">Review order</span>
+                        </Link>
+                      )
+                    })
+                  )}
+                </div>
+              </section>
+            )
+          })}
         </div>
       </section>
     </div>
