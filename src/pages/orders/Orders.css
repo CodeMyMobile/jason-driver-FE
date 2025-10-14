@@ -497,3 +497,36 @@
     grid-template-columns: 1fr;
   }
 }
+/* put this in Orders.css */
+
+.product-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.product-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.product-thumb {
+  flex: 0 0 64px;          /* fixed thumb column */
+  width: 64px;
+  height: 64px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #f3f4f6;     /* nice placeholder bg */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.product-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;     /* or 'cover' if you want it cropped */
+  display: block;
+}
+
