@@ -240,20 +240,6 @@ export default function OrdersFeed() {
               )
             })}
           </div>
-          <div className="orders-panel-actions">
-            <span className="orders-panel-count" aria-label={`${viewConfig.label} count`}>
-              {activeOrders.length}
-            </span>
-            <button
-              type="button"
-              className="icon-button"
-              onClick={loadOrders}
-              disabled={loading}
-              aria-label="Refresh orders"
-            >
-              <span aria-hidden="true" className="refresh-icon" />
-            </button>
-          </div>
         </header>
 
         {error ? (
