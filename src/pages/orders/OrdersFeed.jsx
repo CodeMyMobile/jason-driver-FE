@@ -236,26 +236,46 @@ export default function OrdersFeed() {
   }
 
   return (
-    <div className="orders-surface">
-      <section className="orders-card" aria-labelledby="orders-title">
-        <header className="orders-header">
-          <div>
-            <h1 className="orders-title" id="orders-title">
-              Orders
-            </h1>
-            <p className="orders-subtitle">Stay close to the action and refresh as you go.</p>
-          </div>
-          <button
-            type="button"
-            className="icon-button"
-            onClick={loadOrders}
-            disabled={loading}
-            aria-label="Refresh orders"
-          >
-            <span aria-hidden="true" className="refresh-icon" />
-          </button>
-        </header>
+    <div className="orders-page">
+      <header className="orders-hero" aria-labelledby="orders-title">
+        <div className="orders-hero-copy">
+          <p className="orders-kicker">Driver dashboard</p>
+          <h1 className="orders-hero-title" id="orders-title">
+            Orders overview
+          </h1>
+          <p className="orders-hero-subtitle">
+            Monitor incoming assignments, stay ahead of active routes, and close out completed drops.
+          </p>
+        </div>
 
+        <div className="orders-hero-metrics" role="group" aria-label="Orders summary">
+          <div className="orders-metric primary">
+            <span className="orders-metric-label">Total orders</span>
+            <span className="orders-metric-value">{totalOrders}</span>
+            {lastUpdated ? (
+              <span className="orders-metric-meta">
+                Updated {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            ) : null}
+          </div>
+          {busiestSection ? (
+            <div className="orders-metric">
+              <span className="orders-metric-label">Busiest lane</span>
+              <span className="orders-metric-value">{busiestSection.count}</span>
+              <span className="orders-metric-meta">{busiestSection.tabLabel ?? busiestSection.status}</span>
+            </div>
+          ) : null}
+          {calmestSection ? (
+            <div className="orders-metric subtle">
+              <span className="orders-metric-label">Quietest lane</span>
+              <span className="orders-metric-value">{calmestSection.count}</span>
+              <span className="orders-metric-meta">{calmestSection.tabLabel ?? calmestSection.status}</span>
+            </div>
+          ) : null}
+        </div>
+      </header>
+
+      <div className="orders-toolbar">
         <div className="orders-tabs" role="tablist" aria-label="Order status">
           {SECTION_CONFIG.map((option) => (
             <button
@@ -268,57 +288,98 @@ export default function OrdersFeed() {
                 .join(' ')}
               onClick={() => setView(option.key)}
             >
-              {option.tabLabel ?? option.status}
+              <span className="orders-tab-label">{option.tabLabel ?? option.status}</span>
+              <span className="orders-tab-count">{sectionCounts[option.key] ?? 0}</span>
             </button>
           ))}
         </div>
 
-        {error ? (
-          <div className="form-error" role="alert">
-            {error}
-          </div>
-        ) : null}
-
-        <div className="orders-list" role="list">
-          {displayedOrders.length === 0 ? (
-            <div className="orders-empty" role="status">
-              <p>No {(viewConfig.tabLabel ?? viewConfig.status).toLowerCase()} orders yet.</p>
-            </div>
-          ) : (
-            displayedOrders.map((order) => {
-              const sectionKey = resolveStatusKey(order.status)
-              const variant = resolveStatusVariant(order.status)
-
-              return (
-                <Link
-                  key={order._id}
-                  className={['order-card', `variant-${variant}`].join(' ')}
-                  to={`/orders/${sectionKey}/${order._id}`}
-                  state={{ order }}
-                >
-                  <div className="order-card-header">
-                    <div className="order-card-heading">
-                      <span className="order-card-label">Order</span>
-                      <span className="order-card-number">{formatOrderCode(order)}</span>
-                    </div>
-                    <span className="order-status-pill">{order.status ?? 'Unknown'}</span>
-                  </div>
-                  <div className="order-card-body">
-                    <span className="order-avatar" aria-hidden="true">
-                      {formatInitials(order.owner)}
-                    </span>
-                    <div className="order-card-customer">
-                      <p className="order-card-title">{formatName(order.owner)}</p>
-                      <p className="order-card-meta">{formatAddress(order.address)}</p>
-                    </div>
-                    <span className="order-card-chevron" aria-hidden="true" />
-                  </div>
-                </Link>
-              )
-            })
-          )}
+        <div className="orders-toolbar-actions">
+          <button
+            type="button"
+            className="icon-button"
+            onClick={loadOrders}
+            disabled={loading}
+            aria-label="Refresh orders"
+          >
+            <span aria-hidden="true" className="refresh-icon" />
+          </button>
+          <span className="orders-toolbar-hint">Tap to refresh assignments</span>
         </div>
-      </section>
+      </div>
+
+      {error ? (
+        <div className="form-error" role="alert">
+          {error}
+        </div>
+      ) : null}
+
+      <div className="orders-layout">
+        <section className="orders-main" aria-live="polite">
+          <div className="orders-list" role="list">
+            {displayedOrders.length === 0 ? (
+              <div className="orders-empty" role="status">
+                <p>No {(viewConfig.tabLabel ?? viewConfig.status).toLowerCase()} orders yet.</p>
+                <p className="orders-empty-hint">Keep an eye out for dispatcher updates.</p>
+              </div>
+            ) : (
+              displayedOrders.map((order) => {
+                const sectionKey = resolveStatusKey(order.status)
+                const variant = resolveStatusVariant(order.status)
+
+                return (
+                  <Link
+                    key={order._id}
+                    className={['order-card', `variant-${variant}`].join(' ')}
+                    to={`/orders/${sectionKey}/${order._id}`}
+                    state={{ order }}
+                  >
+                    <div className="order-card-header">
+                      <div className="order-card-heading">
+                        <span className="order-card-label">Order</span>
+                        <span className="order-card-number">{formatOrderCode(order)}</span>
+                      </div>
+                      <span className="order-status-pill">{order.status ?? 'Unknown'}</span>
+                    </div>
+                    <div className="order-card-body">
+                      <span className="order-avatar" aria-hidden="true">
+                        {formatInitials(order.owner)}
+                      </span>
+                      <div className="order-card-customer">
+                        <p className="order-card-title">{formatName(order.owner)}</p>
+                        <p className="order-card-meta">{formatAddress(order.address)}</p>
+                      </div>
+                      <span className="order-card-chevron" aria-hidden="true" />
+                    </div>
+                  </Link>
+                )
+              })
+            )}
+          </div>
+        </section>
+
+        <aside className="orders-summary-panel" aria-label="Order distribution">
+          <div className="orders-summary-card">
+            <h2>Today at a glance</h2>
+            <ul>
+              {SECTION_CONFIG.map((section) => (
+                <li key={section.key}>
+                  <span className="summary-dot" data-variant={section.key} aria-hidden="true" />
+                  <div>
+                    <p className="summary-label">{section.tabLabel ?? section.status}</p>
+                    <p className="summary-meta">{section.description}</p>
+                  </div>
+                  <span className="summary-count">{sectionCounts[section.key] ?? 0}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="orders-summary-card subtle">
+            <h3>Need a breather?</h3>
+            <p>Switch to the Profile tab to update your status or log a break.</p>
+          </div>
+        </aside>
+      </div>
     </div>
   )
 }

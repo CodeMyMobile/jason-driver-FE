@@ -64,7 +64,7 @@ export default function LoginPage() {
   return (
     <main className="auth-surface">
       <section className="auth-panel" aria-labelledby="login-title">
-        <header className="auth-panel-header">
+        <div className="auth-panel-side">
           <span className="brand-icon" aria-hidden="true">
             <span className="brand-emoji" role="img" aria-label="delivery truck">
               🚚
@@ -76,12 +76,13 @@ export default function LoginPage() {
             </p>
             <p className="brand-subtitle">Driver Portal</p>
           </div>
-        </header>
+          <p className="auth-side-copy">Track, accept, and complete deliveries with a single, reliable workspace.</p>
+        </div>
 
-        <div className="auth-card">
+        <div className="auth-panel-form">
           <div className="auth-card-copy">
             <h2 className="auth-card-title">Welcome back</h2>
-            <p className="auth-card-subtitle">Sign in to access today&apos;s deliveries.</p>
+            <p className="auth-card-subtitle">Sign in to review your route and manage the day&apos;s drop-offs.</p>
           </div>
 
           <form className="auth-form" onSubmit={handleSubmit}>

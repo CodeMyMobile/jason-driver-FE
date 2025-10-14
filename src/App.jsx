@@ -44,52 +44,69 @@ function AppLayout() {
   })()
 
   return (
-    <div className="app-surface">
-      <div className="app-panel">
+    <div className="app-shell">
+      <div className="app-backdrop" aria-hidden="true" />
+      <div className="app-container">
         <header className="app-header">
-          <Link to="/orders" className="brand" aria-label="Jason's Delivery home">
-            <span className="brand-icon" aria-hidden="true">
-              <span className="brand-emoji" role="img" aria-label="delivery truck">
+          <Link to="/orders" className="app-logo" aria-label="Jason's Delivery home">
+            <span className="app-logo-mark" aria-hidden="true">
+              <span role="img" aria-label="delivery truck">
                 🚚
               </span>
             </span>
-            <span className="brand-text">
-              <span className="brand-title">Jason&apos;s Delivery</span>
-              <span className="brand-subtitle">Driver Portal</span>
+            <span className="app-logo-copy">
+              <span className="app-logo-title">Jason&apos;s Delivery</span>
+              <span className="app-logo-subtitle">Driver Portal</span>
             </span>
           </Link>
-          <div className="header-meta">
-            <span className={['driver-status', statusTone].filter(Boolean).join(' ')}>
-              <span className="status-indicator" aria-hidden="true" />
-              <span className="driver-status-label">{statusLabel}</span>
+
+          <nav className="app-nav-desktop" aria-label="Primary">
+            {navItems.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                className={({ isActive }) =>
+                  ['app-nav-link', isActive ? 'active' : ''].filter(Boolean).join(' ')
+                }
+                end={item.to === '/settings'}
+              >
+                {item.label}
+              </NavLink>
+            ))}
+          </nav>
+
+          <div className="app-header-meta">
+            <span className={['status-chip', statusTone].filter(Boolean).join(' ')}>
+              <span className="status-dot" aria-hidden="true" />
+              <span className="status-label">{statusLabel}</span>
             </span>
             {user ? (
-              <div className="header-user">
-                <span className="header-user-name">{user?.name?.first} {user?.name?.last}</span>
-                <span className="header-user-email">{user?.email}</span>
+              <div className="app-user">
+                <span className="app-user-name">{user?.name?.first} {user?.name?.last}</span>
+                <span className="app-user-email">{user?.email}</span>
               </div>
             ) : null}
           </div>
         </header>
 
-        <div className="app-body">
+        <main className="app-main">
           <Outlet />
-        </div>
+        </main>
 
-        <nav className="tab-bar" aria-label="Main navigation">
+        <nav className="app-nav-mobile" aria-label="Main navigation">
           {navItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
               className={({ isActive }) =>
-                ['tab-bar-item', isActive ? 'active' : '', `icon-${item.icon}`]
+                ['app-nav-item', isActive ? 'active' : '', `icon-${item.icon}`]
                   .filter(Boolean)
                   .join(' ')
               }
               end={item.to === '/settings'}
             >
-              <span className="tab-icon" aria-hidden="true" />
-              <span className="tab-label">{item.label}</span>
+              <span className="app-nav-icon" aria-hidden="true" />
+              <span className="app-nav-label">{item.label}</span>
             </NavLink>
           ))}
         </nav>
