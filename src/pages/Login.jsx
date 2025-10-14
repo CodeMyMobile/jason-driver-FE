@@ -64,21 +64,30 @@ export default function LoginPage() {
   return (
     <main className="auth-surface">
       <section className="auth-panel" aria-labelledby="login-title">
-        <header className="auth-panel-header">
-          <div className="brand-icon" aria-hidden="true" />
-          <p className="brand-title" id="login-title">
-            Jason&apos;s Delivery
-          </p>
-          <p className="brand-subtitle">Drivers &amp; Partners</p>
-        </header>
+        <div className="auth-panel-side">
+          <span className="brand-icon" aria-hidden="true">
+            <span className="brand-emoji" role="img" aria-label="delivery truck">
+              🚚
+            </span>
+          </span>
+          <div className="brand-heading">
+            <p className="brand-title" id="login-title">
+              Jason&apos;s Delivery
+            </p>
+            <p className="brand-subtitle">Driver Portal</p>
+          </div>
+          <p className="auth-side-copy">Track, accept, and complete deliveries with a single, reliable workspace.</p>
+        </div>
 
-        <div className="auth-card">
-          <h2 className="auth-card-title">Sign in to continue</h2>
-          <p className="auth-card-subtitle">Access your deliveries and keep your route moving.</p>
+        <div className="auth-panel-form">
+          <div className="auth-card-copy">
+            <h2 className="auth-card-title">Welcome back</h2>
+            <p className="auth-card-subtitle">Sign in to review your route and manage the day&apos;s drop-offs.</p>
+          </div>
 
           <form className="auth-form" onSubmit={handleSubmit}>
             <label className="form-field">
-              <span className="form-label">Email</span>
+              <span className="form-label">Email address</span>
               <input
                 type="email"
                 name="email"
@@ -87,7 +96,7 @@ export default function LoginPage() {
                 value={email}
                 onChange={handleEmailChange}
                 className="form-input"
-                placeholder="driver@email.com"
+                placeholder="driver@example.com"
                 disabled={authenticating}
                 required
               />
@@ -102,7 +111,7 @@ export default function LoginPage() {
                 value={password}
                 onChange={handlePasswordChange}
                 className="form-input"
-                placeholder="Enter your password"
+                placeholder="Min. 6 characters"
                 disabled={authenticating}
                 required
               />
@@ -118,6 +127,11 @@ export default function LoginPage() {
               {authenticating ? 'Signing in…' : 'Sign in'}
             </button>
           </form>
+
+          <p className="auth-support">
+            Need help accessing your account?{' '}
+            <a href="mailto:support@jasonsdelivery.com">Contact support</a>
+          </p>
         </div>
       </section>
     </main>
