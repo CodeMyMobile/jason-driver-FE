@@ -9,10 +9,10 @@
 .app-panel {
   width: min(100%, 420px);
   min-height: clamp(36rem, 90vh, 720px);
-  background: rgba(255, 255, 255, 0.92);
-  border-radius: 2rem;
-  box-shadow: 0 40px 90px rgba(76, 29, 149, 0.28);
-  backdrop-filter: blur(18px);
+  background: rgba(255, 255, 255, 0.94);
+  border-radius: 2.5rem;
+  box-shadow: 0 32px 120px rgba(76, 29, 149, 0.26);
+  backdrop-filter: blur(22px);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -20,19 +20,17 @@
 }
 
 .app-header {
-  padding: 2.5rem 2.25rem 1.75rem;
+  padding: 2.35rem 2.35rem 1.75rem;
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 1rem;
-  text-align: center;
+  justify-content: space-between;
+  gap: 1.75rem;
 }
 
 .brand {
   display: inline-flex;
-  flex-direction: column;
   align-items: center;
-  gap: 0.85rem;
+  gap: 1rem;
   color: inherit;
   text-decoration: none;
 }
@@ -41,18 +39,36 @@
   width: 64px;
   height: 64px;
   border-radius: 20px;
-  background: linear-gradient(135deg, #f5d86b, #f28c48 48%, #a855f7 100%);
-  box-shadow: 0 14px 40px rgba(168, 85, 247, 0.25);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.04));
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.4), 0 12px 30px rgba(99, 102, 241, 0.22);
+  display: grid;
+  place-items: center;
+  position: relative;
+}
+
+.brand-icon::after {
+  content: '';
+  position: absolute;
+  inset: -8px;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(96, 165, 250, 0.25), rgba(129, 140, 248, 0.25));
+  filter: blur(24px);
+  z-index: -1;
+}
+
+.brand-emoji {
+  font-size: 1.9rem;
+  transform: translateY(1px);
 }
 
 .brand-text {
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
+  gap: 0.25rem;
 }
 
 .brand-title {
-  font-size: 1.35rem;
+  font-size: 1.4rem;
   font-weight: 700;
   color: #21183c;
   letter-spacing: 0.015em;
@@ -60,9 +76,16 @@
 
 .brand-subtitle {
   font-size: 0.85rem;
-  color: rgba(33, 24, 60, 0.65);
-  letter-spacing: 0.08em;
+  color: rgba(33, 24, 60, 0.6);
+  letter-spacing: 0.18em;
   text-transform: uppercase;
+}
+
+.brand-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  text-align: left;
 }
 
 .header-user {
@@ -76,6 +99,63 @@
 .header-user-name {
   font-weight: 600;
   color: #21183c;
+}
+
+.header-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  align-items: flex-end;
+}
+
+.driver-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.85rem;
+  border-radius: 999px;
+  background: rgba(99, 102, 241, 0.12);
+  color: #312e81;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.driver-status.online {
+  background: rgba(34, 197, 94, 0.15);
+  color: #047857;
+}
+
+.driver-status.onduty {
+  background: rgba(250, 204, 21, 0.16);
+  color: #92400e;
+}
+
+.driver-status.offline {
+  background: rgba(239, 68, 68, 0.16);
+  color: #991b1b;
+}
+
+.status-indicator {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: currentColor;
+  position: relative;
+}
+
+.status-indicator::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: inherit;
+  border: 1px solid currentColor;
+  opacity: 0.3;
+}
+
+.driver-status-label {
+  letter-spacing: 0.12em;
 }
 
 .app-body {
@@ -159,7 +239,7 @@
   width: min(100%, 420px);
   background: rgba(255, 255, 255, 0.9);
   border-radius: 2.25rem;
-  padding: 2.5rem 2.25rem 2.75rem;
+  padding: 2.65rem 2.5rem 2.75rem;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -171,25 +251,33 @@
 
 .auth-panel-header {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 0.75rem;
+  justify-content: center;
+  gap: 1rem;
 }
 
 .auth-card {
   width: 100%;
-  background: rgba(248, 250, 255, 0.8);
-  border-radius: 1.5rem;
-  padding: 2rem;
-  box-shadow: inset 0 0 0 1px rgba(99, 102, 241, 0.12);
+  background: rgba(248, 250, 255, 0.9);
+  border-radius: 1.75rem;
+  padding: 2.25rem;
+  box-shadow: inset 0 0 0 1px rgba(99, 102, 241, 0.14);
   display: flex;
   flex-direction: column;
-  gap: 1.75rem;
+  gap: 2rem;
+  text-align: left;
+}
+
+.auth-card-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  text-align: left;
 }
 
 .auth-card-title {
   margin: 0;
-  font-size: 1.3rem;
+  font-size: 1.35rem;
   font-weight: 700;
   color: #1f1740;
 }
@@ -198,6 +286,24 @@
   margin: 0;
   color: rgba(31, 23, 64, 0.65);
   font-size: 0.95rem;
+}
+
+.auth-support {
+  margin: 0;
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+  color: rgba(31, 23, 64, 0.6);
+  text-align: left;
+}
+
+.auth-support a {
+  color: #4338ca;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.auth-support a:hover {
+  text-decoration: underline;
 }
 
 .auth-form,

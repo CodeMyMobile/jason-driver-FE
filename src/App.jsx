@@ -19,23 +19,57 @@ function AppLayout() {
     { to: '/settings', label: 'Profile', icon: 'profile' },
   ]
 
+  const status = user?.status?.toLowerCase() ?? ''
+  const statusLabel = (() => {
+    if (status === 'offline') {
+      return 'Offline'
+    }
+    if (status === 'onduty' || status === 'on duty') {
+      return 'On Duty'
+    }
+    if (status === 'active' || status === 'online') {
+      return 'Active'
+    }
+    return 'Active'
+  })()
+
+  const statusTone = (() => {
+    if (status === 'offline') {
+      return 'offline'
+    }
+    if (status === 'onduty' || status === 'on duty') {
+      return 'onduty'
+    }
+    return 'online'
+  })()
+
   return (
     <div className="app-surface">
       <div className="app-panel">
         <header className="app-header">
           <Link to="/orders" className="brand" aria-label="Jason's Delivery home">
-            <span className="brand-icon" aria-hidden="true" />
+            <span className="brand-icon" aria-hidden="true">
+              <span className="brand-emoji" role="img" aria-label="delivery truck">
+                🚚
+              </span>
+            </span>
             <span className="brand-text">
               <span className="brand-title">Jason&apos;s Delivery</span>
-              <span className="brand-subtitle">Drivers &amp; Partners</span>
+              <span className="brand-subtitle">Driver Portal</span>
             </span>
           </Link>
-          {user ? (
-            <div className="header-user">
-              <span className="header-user-name">{user?.name?.first} {user?.name?.last}</span>
-              <span className="header-user-email">{user?.email}</span>
-            </div>
-          ) : null}
+          <div className="header-meta">
+            <span className={['driver-status', statusTone].filter(Boolean).join(' ')}>
+              <span className="status-indicator" aria-hidden="true" />
+              <span className="driver-status-label">{statusLabel}</span>
+            </span>
+            {user ? (
+              <div className="header-user">
+                <span className="header-user-name">{user?.name?.first} {user?.name?.last}</span>
+                <span className="header-user-email">{user?.email}</span>
+              </div>
+            ) : null}
+          </div>
         </header>
 
         <div className="app-body">

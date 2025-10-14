@@ -8,30 +8,32 @@ const SECTION_CONFIG = [
   {
     key: 'assigned',
     status: 'Assigned',
+    tabLabel: 'Pending',
     title: 'Assigned Orders',
     description: 'Orders that are ready for you to accept.',
+    statuses: ['Assigned', 'Pending'],
   },
   {
     key: 'accepted',
     status: 'Accepted',
+    tabLabel: 'Active',
     title: 'Accepted Orders',
     description: 'Orders that are waiting to start delivery.',
+    statuses: ['Accepted'],
   },
   {
     key: 'progress',
     status: 'In Progress',
+    tabLabel: 'Completed',
     title: 'Out for Delivery',
     description: 'Orders that are currently on the way.',
+    statuses: ['In Progress', 'Out for delivery', 'Completed', 'Delivered'],
   },
 ]
 
 const SECTION_STATUS_MAP = SECTION_CONFIG.reduce((acc, section) => {
-  if (section.key === 'progress') {
-    acc[section.key] = [section.status, 'Out for delivery']
-  } else {
-    acc[section.key] = [section.status]
-  }
-
+  const statuses = section.statuses?.length ? section.statuses : [section.status]
+  acc[section.key] = statuses
   return acc
 }, {})
 
@@ -51,6 +53,23 @@ function formatName(owner) {
   return [owner?.name?.first, owner?.name?.last].filter(Boolean).join(' ') || 'Unknown customer'
 }
 
+function formatInitials(owner) {
+  if (!owner) {
+    return 'JD'
+  }
+
+  const first = owner?.name?.first?.[0]
+  const last = owner?.name?.last?.[0]
+
+  const initials = [first, last].filter(Boolean).join('')
+  if (initials) {
+    return initials.toUpperCase()
+  }
+
+  const fallback = owner?.name?.first || owner?.name?.last || owner?.email || 'JD'
+  return fallback.slice(0, 2).toUpperCase()
+}
+
 function formatAddress(address) {
   if (!address) {
     return 'No address on file'
@@ -67,6 +86,47 @@ function formatAddress(address) {
   }
 
   return parts.join(', ') || 'No address on file'
+}
+
+const ORDER_IDENTIFIER_KEYS = ['orderNumber', 'displayId', 'reference', 'code', 'orderId', 'id']
+
+function formatOrderCode(order) {
+  for (const key of ORDER_IDENTIFIER_KEYS) {
+    const value = order?.[key]
+    if (typeof value === 'string' && value.trim()) {
+      return value.trim()
+    }
+  }
+
+  if (typeof order?._id === 'string' && order._id.trim()) {
+    const trimmed = order._id.trim()
+    const suffix = trimmed.slice(-6).toUpperCase()
+    return suffix ? `#${suffix}` : trimmed
+  }
+
+  return 'New Order'
+}
+
+function resolveStatusVariant(status) {
+  if (!status) {
+    return 'pending'
+  }
+
+  const normalized = status.toLowerCase()
+
+  if (['assigned', 'pending', 'new'].includes(normalized)) {
+    return 'pending'
+  }
+
+  if (['accepted', 'in progress', 'out for delivery', 'active'].includes(normalized)) {
+    return 'active'
+  }
+
+  if (['completed', 'delivered', 'finished'].includes(normalized)) {
+    return 'completed'
+  }
+
+  return 'active'
 }
 
 function resolveStatusKey(status) {
@@ -203,17 +263,16 @@ export default function OrdersFeed() {
               type="button"
               role="tab"
               aria-selected={view === option.key}
-              className={['orders-tab', view === option.key ? 'active' : '']
+              className={['orders-tab', view === option.key ? 'active' : '', `accent-${option.key}`]
                 .filter(Boolean)
                 .join(' ')}
               onClick={() => setView(option.key)}
             >
-              {option.status}
+              {option.tabLabel ?? option.status}
             </button>
           ))}
         </div>
 
-       
         {error ? (
           <div className="form-error" role="alert">
             {error}
@@ -223,25 +282,37 @@ export default function OrdersFeed() {
         <div className="orders-list" role="list">
           {displayedOrders.length === 0 ? (
             <div className="orders-empty" role="status">
-              <p>No {viewConfig.status.toLowerCase()} orders yet.</p>
+              <p>No {(viewConfig.tabLabel ?? viewConfig.status).toLowerCase()} orders yet.</p>
             </div>
           ) : (
             displayedOrders.map((order) => {
               const sectionKey = resolveStatusKey(order.status)
+              const variant = resolveStatusVariant(order.status)
 
               return (
                 <Link
                   key={order._id}
-                  className="order-item"
+                  className={['order-card', `variant-${variant}`].join(' ')}
                   to={`/orders/${sectionKey}/${order._id}`}
                   state={{ order }}
                 >
-                  <div className="order-item-body">
-                    <p className="order-item-title">{formatName(order.owner)}</p>
-                    <p className="order-item-meta">{formatAddress(order.address)}</p>
+                  <div className="order-card-header">
+                    <div className="order-card-heading">
+                      <span className="order-card-label">Order</span>
+                      <span className="order-card-number">{formatOrderCode(order)}</span>
+                    </div>
+                    <span className="order-status-pill">{order.status ?? 'Unknown'}</span>
                   </div>
-                  <span className="order-item-status">{order.status}</span>
-                  <span className="order-item-chevron" aria-hidden="true" />
+                  <div className="order-card-body">
+                    <span className="order-avatar" aria-hidden="true">
+                      {formatInitials(order.owner)}
+                    </span>
+                    <div className="order-card-customer">
+                      <p className="order-card-title">{formatName(order.owner)}</p>
+                      <p className="order-card-meta">{formatAddress(order.address)}</p>
+                    </div>
+                    <span className="order-card-chevron" aria-hidden="true" />
+                  </div>
                 </Link>
               )
             })
