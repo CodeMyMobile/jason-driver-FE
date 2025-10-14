@@ -1,4 +1,4 @@
-import { Link, Navigate, NavLink, Outlet, Route, Routes } from 'react-router-dom'
+import { Navigate, NavLink, Outlet, Route, Routes } from 'react-router-dom'
 import ProtectedRoute from './components/ProtectedRoute.jsx'
 import { useAuth } from './context/AuthContext.jsx'
 import LoginPage from './pages/Login.jsx'
@@ -19,23 +19,46 @@ function AppLayout() {
     { to: '/settings', label: 'Profile', icon: 'profile' },
   ]
 
+  const firstName = user?.name?.first ?? ''
+  const lastName = user?.name?.last ?? ''
+  const fullName = [firstName, lastName].filter(Boolean).join(' ')
+  const now = new Date()
+  const formattedDate = new Intl.DateTimeFormat('en-US', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+  }).format(now)
+  const formattedTime = new Intl.DateTimeFormat('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(now)
+
   return (
     <div className="app-surface">
       <div className="app-panel">
         <header className="app-header">
-          <Link to="/orders" className="brand" aria-label="Jason's Delivery home">
-            <span className="brand-icon" aria-hidden="true" />
-            <span className="brand-text">
-              <span className="brand-title">Jason&apos;s Delivery</span>
-              <span className="brand-subtitle">Drivers &amp; Partners</span>
-            </span>
-          </Link>
-          {user ? (
-            <div className="header-user">
-              <span className="header-user-name">{user?.name?.first} {user?.name?.last}</span>
-              <span className="header-user-email">{user?.email}</span>
+          <div className="app-header-top">
+            <span className="app-header-emblem" aria-hidden="true" />
+            <div className="app-header-copy">
+              <span className="app-header-label">Driver dashboard</span>
+              <h1 className="app-header-title">
+                {firstName ? `Welcome back, ${firstName}!` : 'Welcome back!'}
+              </h1>
             </div>
-          ) : null}
+          </div>
+
+          <div className="app-header-bottom">
+            <div className="app-header-date" aria-label="Current date and time">
+              <span className="app-header-date-label">{formattedDate}</span>
+              <span className="app-header-time">{formattedTime}</span>
+            </div>
+            {fullName || user?.email ? (
+              <div className="app-header-user" aria-label="Signed in user">
+                {fullName ? <span className="app-header-name">{fullName}</span> : null}
+                {user?.email ? <span className="app-header-email">{user.email}</span> : null}
+              </div>
+            ) : null}
+          </div>
         </header>
 
         <div className="app-body">

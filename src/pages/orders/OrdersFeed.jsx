@@ -4,30 +4,33 @@ import { useAuth } from '../../context/AuthContext'
 import { fetchOrders } from '../../services/orderService'
 import './Orders.css'
 
-const COLUMN_CONFIG = [
+const TAB_CONFIG = [
   {
     key: 'pending',
-    title: 'Pending',
+    label: 'Pending',
+    title: 'Pending orders',
     description: 'Orders that are waiting for you to accept them.',
     statuses: ['Assigned'],
   },
   {
     key: 'active',
-    title: 'Active',
+    label: 'Active',
+    title: 'Active deliveries',
     description: 'Orders that are currently out for delivery.',
     statuses: ['Accepted', 'In Progress', 'Out for delivery'],
   },
   {
     key: 'completed',
-    title: 'Completed',
+    label: 'Completed',
+    title: 'Completed drops',
     description: 'Orders that you have already delivered.',
     statuses: ['Completed', 'Delivered'],
   },
 ]
 
-const STATUS_TO_COLUMN = COLUMN_CONFIG.reduce((acc, column) => {
-  column.statuses.forEach((status) => {
-    acc[status.toLowerCase()] = column.key
+const STATUS_TO_TAB = TAB_CONFIG.reduce((acc, tab) => {
+  tab.statuses.forEach((status) => {
+    acc[status.toLowerCase()] = tab.key
   })
 
   return acc
@@ -59,12 +62,12 @@ function formatAddress(address) {
   return parts.join(', ') || 'No address on file'
 }
 
-function resolveColumnKey(status) {
+function resolveTabKey(status) {
   if (!status) {
-    return COLUMN_CONFIG[0].key
+    return TAB_CONFIG[0].key
   }
 
-  return STATUS_TO_COLUMN[status.toLowerCase()] ?? COLUMN_CONFIG[0].key
+  return STATUS_TO_TAB[status.toLowerCase()] ?? TAB_CONFIG[0].key
 }
 
 function resolveRouteKey(status) {
@@ -154,6 +157,8 @@ export default function OrdersFeed() {
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [view, setView] = useState(TAB_CONFIG[0].key)
+
   const loadOrders = useCallback(async () => {
     if (!token) {
       return
@@ -177,25 +182,32 @@ export default function OrdersFeed() {
     loadOrders()
   }, [loadOrders])
 
-  const countsByColumn = useMemo(() => {
+  const countsByTab = useMemo(() => {
     return orders.reduce((acc, order) => {
-      const columnKey = resolveColumnKey(order.status)
-      acc[columnKey] = (acc[columnKey] ?? 0) + 1
+      const tabKey = resolveTabKey(order.status)
+      acc[tabKey] = (acc[tabKey] ?? 0) + 1
       return acc
     }, {})
   }, [orders])
 
-  const ordersByColumn = useMemo(() => {
+  const ordersByTab = useMemo(() => {
     return orders.reduce((acc, order) => {
-      const columnKey = resolveColumnKey(order.status)
-      if (!acc[columnKey]) {
-        acc[columnKey] = []
+      const tabKey = resolveTabKey(order.status)
+      if (!acc[tabKey]) {
+        acc[tabKey] = []
       }
 
-      acc[columnKey].push(order)
+      acc[tabKey].push(order)
       return acc
     }, {})
   }, [orders])
+
+  const viewConfig = useMemo(
+    () => TAB_CONFIG.find((tab) => tab.key === view) ?? TAB_CONFIG[0],
+    [view],
+  )
+
+  const activeOrders = ordersByTab[viewConfig.key] ?? []
 
   if (loading && orders.length === 0) {
     return (
@@ -207,24 +219,55 @@ export default function OrdersFeed() {
 
   return (
     <div className="orders-surface">
-      <section className="orders-board" aria-labelledby="orders-title">
-        <header className="orders-header">
-          <div>
-            <h1 className="orders-title" id="orders-title">
-              Orders
+      <section className="orders-panel" aria-labelledby="orders-title">
+        <header className="orders-panel-header">
+          <div className="orders-panel-copy">
+            <h1 className="orders-panel-title" id="orders-title">
+              {viewConfig.title}
             </h1>
-            <p className="orders-subtitle">Stay close to the action and refresh as you go.</p>
+            <p className="orders-panel-subtitle">{viewConfig.description}</p>
           </div>
-          <button
-            type="button"
-            className="icon-button"
-            onClick={loadOrders}
-            disabled={loading}
-            aria-label="Refresh orders"
-          >
-            <span aria-hidden="true" className="refresh-icon" />
-          </button>
+          <div className="orders-panel-actions">
+            <span className="orders-panel-count" aria-label={`${viewConfig.label} count`}>
+              {activeOrders.length}
+            </span>
+            <button
+              type="button"
+              className="icon-button"
+              onClick={loadOrders}
+              disabled={loading}
+              aria-label="Refresh orders"
+            >
+              <span aria-hidden="true" className="refresh-icon" />
+            </button>
+          </div>
         </header>
+
+        <div className="orders-tabs" role="tablist" aria-label="Order status">
+          {TAB_CONFIG.map((tab) => {
+            const tabCount = countsByTab[tab.key] ?? 0
+            const tabId = `${tab.key}-tab`
+            const panelId = `${tab.key}-panel`
+
+            return (
+              <button
+                key={tab.key}
+                id={tabId}
+                type="button"
+                role="tab"
+                aria-selected={view === tab.key}
+                aria-controls={panelId}
+                className={['orders-tab', view === tab.key ? 'active' : '']
+                  .filter(Boolean)
+                  .join(' ')}
+                onClick={() => setView(tab.key)}
+              >
+                <span className="orders-tab-label">{tab.label}</span>
+                <span className="orders-tab-count">{tabCount}</span>
+              </button>
+            )
+          })}
+        </div>
 
         {error ? (
           <div className="form-error" role="alert">
@@ -232,88 +275,74 @@ export default function OrdersFeed() {
           </div>
         ) : null}
 
-        <div className="orders-columns">
-          {COLUMN_CONFIG.map((column) => {
-            const columnOrders = ordersByColumn[column.key] ?? []
-            const columnCount = countsByColumn[column.key] ?? 0
+        <div
+          id={`${viewConfig.key}-panel`}
+          role="tabpanel"
+          aria-labelledby={`${viewConfig.key}-tab`}
+          className="orders-panel-body"
+        >
+          {activeOrders.length === 0 ? (
+            <div className="orders-empty" role="status">
+              <p>No {viewConfig.label.toLowerCase()} orders yet.</p>
+            </div>
+          ) : (
+            <div className="orders-list" role="list">
+              {activeOrders.map((order) => {
+                const customerName = formatName(order.owner)
+                const initials = resolveInitials(customerName)
+                const itemsCount = countOrderItems(order)
+                const formattedTotal = formatCurrency(order.total)
+                const routeKey = resolveRouteKey(order.status)
 
-            return (
-              <section key={column.key} className="orders-column" aria-labelledby={`${column.key}-title`}>
-                <header className="orders-column-header">
-                  <div className="orders-column-copy">
-                    <h2 className="orders-column-title" id={`${column.key}-title`}>
-                      {column.title}
-                    </h2>
-                    <p className="orders-column-subtitle">{column.description}</p>
-                  </div>
-                  <span className="orders-column-count" aria-label={`${column.title} count`}>
-                    {columnCount}
-                  </span>
-                </header>
-
-                <div className="orders-column-body" role="list">
-                  {columnOrders.length === 0 ? (
-                    <div className="orders-column-empty" role="status">
-                      <p>No {column.title.toLowerCase()} orders yet.</p>
+                return (
+                  <Link
+                    key={order._id}
+                    className="order-card"
+                    to={`/orders/${routeKey}/${order._id}`}
+                    state={{ order }}
+                    role="listitem"
+                  >
+                    <div className="order-card-header">
+                      <div className="order-card-title-group">
+                        <span className="order-card-label">Order</span>
+                        <span className="order-card-code">{formatOrderCode(order)}</span>
+                      </div>
+                      <span className={`order-status-tag ${viewConfig.key}`}>
+                        {order.status ?? viewConfig.label}
+                      </span>
                     </div>
-                  ) : (
-                    columnOrders.map((order) => {
-                      const customerName = formatName(order.owner)
-                      const initials = resolveInitials(customerName)
-                      const itemsCount = countOrderItems(order)
-                      const formattedTotal = formatCurrency(order.total)
-                      const routeKey = resolveRouteKey(order.status)
 
-                      return (
-                        <Link
-                          key={order._id}
-                          className="order-card"
-                          to={`/orders/${routeKey}/${order._id}`}
-                          state={{ order }}
-                          role="listitem"
-                        >
-                          <div className="order-card-header">
-                            <div className="order-card-title-group">
-                              <span className="order-card-label">Order</span>
-                              <span className="order-card-code">{formatOrderCode(order)}</span>
-                            </div>
-                            <span className={`order-status-tag ${column.key}`}>
-                              {order.status ?? column.title}
-                            </span>
-                          </div>
+                    <div className="order-card-body">
+                      <div className="order-card-customer">
+                        <span className="order-card-avatar" aria-hidden="true">
+                          {initials}
+                        </span>
+                        <div>
+                          <p className="order-card-name">{customerName}</p>
+                          {order.owner?.phone ? (
+                            <p className="order-card-meta">{order.owner.phone}</p>
+                          ) : null}
+                        </div>
+                      </div>
 
-                          <div className="order-card-body">
-                            <div className="order-card-customer">
-                              <span className="order-card-avatar" aria-hidden="true">
-                                {initials}
-                              </span>
-                              <div>
-                                <p className="order-card-name">{customerName}</p>
-                                {order.owner?.phone ? (
-                                  <p className="order-card-meta">{order.owner.phone}</p>
-                                ) : null}
-                              </div>
-                            </div>
+                      <div className="order-card-address">
+                        <p>{formatAddress(order.address)}</p>
+                      </div>
 
-                            <div className="order-card-address">
-                              <p>{formatAddress(order.address)}</p>
-                            </div>
+                      <div className="order-card-stats">
+                        <span>
+                          {itemsCount} item{itemsCount === 1 ? '' : 's'}
+                        </span>
+                        {formattedTotal ? <span>{formattedTotal}</span> : null}
+                      </div>
+                    </div>
 
-                            <div className="order-card-stats">
-                              <span>{itemsCount} item{itemsCount === 1 ? '' : 's'}</span>
-                              {formattedTotal ? <span>{formattedTotal}</span> : null}
-                            </div>
-                          </div>
-
-                          <span className="order-card-cta">Review order</span>
-                        </Link>
-                      )
-                    })
-                  )}
-                </div>
-              </section>
-            )
-          })}
+                    <span className="order-card-cta">Review order</span>
+                  </Link>
+                )
+              })}
+            </div>
+          )}
         </div>
       </section>
     </div>

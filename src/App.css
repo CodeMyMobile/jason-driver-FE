@@ -20,62 +20,95 @@
 }
 
 .app-header {
-  padding: 2.5rem 2.25rem 1.75rem;
+  padding: 2.25rem 2.25rem 1.75rem;
   display: flex;
   flex-direction: column;
+  gap: 1.5rem;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.92), rgba(236, 233, 254, 0.55));
+  border-bottom: 1px solid rgba(76, 29, 149, 0.08);
+}
+
+.app-header-top {
+  display: flex;
   align-items: center;
   gap: 1rem;
-  text-align: center;
 }
 
-.brand {
-  display: inline-flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.85rem;
-  color: inherit;
-  text-decoration: none;
+.app-header-emblem {
+  width: 52px;
+  height: 52px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #fde68a, #f97316 45%, #7c3aed 100%);
+  box-shadow: 0 16px 40px rgba(124, 58, 237, 0.28);
 }
 
-.brand-icon {
-  width: 64px;
-  height: 64px;
-  border-radius: 20px;
-  background: linear-gradient(135deg, #f5d86b, #f28c48 48%, #a855f7 100%);
-  box-shadow: 0 14px 40px rgba(168, 85, 247, 0.25);
-}
-
-.brand-text {
+.app-header-copy {
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
+  gap: 0.3rem;
 }
 
-.brand-title {
-  font-size: 1.35rem;
+.app-header-label {
+  font-size: 0.7rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: rgba(67, 56, 202, 0.75);
+}
+
+.app-header-title {
+  margin: 0;
+  font-size: 1.45rem;
   font-weight: 700;
   color: #21183c;
-  letter-spacing: 0.015em;
+  letter-spacing: 0.01em;
 }
 
-.brand-subtitle {
-  font-size: 0.85rem;
-  color: rgba(33, 24, 60, 0.65);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+.app-header-bottom {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1.5rem;
+  flex-wrap: wrap;
 }
 
-.header-user {
+.app-header-date {
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
-  font-size: 0.8rem;
+  gap: 0.25rem;
+  font-size: 0.85rem;
   color: rgba(33, 24, 60, 0.65);
 }
 
-.header-user-name {
+.app-header-date-label {
   font-weight: 600;
   color: #21183c;
+}
+
+.app-header-time {
+  font-size: 0.78rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: rgba(79, 70, 229, 0.8);
+}
+
+.app-header-user {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.8rem;
+  color: rgba(33, 24, 60, 0.6);
+  text-align: right;
+}
+
+.app-header-name {
+  font-weight: 600;
+  color: #21183c;
+}
+
+.app-header-email {
+  letter-spacing: 0.04em;
 }
 
 .app-body {
