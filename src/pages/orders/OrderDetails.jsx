@@ -37,6 +37,16 @@ const STATUS_VARIANTS = {
     showCardDetails: true,
     showFinalizeActions: true,
   },
+  completed: {
+    key: 'completed',
+    statusLabel: 'Completed',
+    pillClass: 'completed',
+    primaryActionLabel: null,
+    primaryActionStatus: null,
+    showMap: true,
+    showCardDetails: true,
+    showFinalizeActions: false,
+  },
 }
 
 function inferStatusKey(status) {
@@ -56,6 +66,10 @@ function inferStatusKey(status) {
 
   if (normalized === 'in progress') {
     return 'progress'
+  }
+
+  if (normalized === 'completed' || normalized === 'delivered') {
+    return 'completed'
   }
 
   return 'assigned'
