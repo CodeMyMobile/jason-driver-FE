@@ -8,22 +8,16 @@ const TAB_CONFIG = [
   {
     key: 'pending',
     label: 'Pending',
-    title: 'Pending orders',
-    description: 'Orders that are waiting for you to accept them.',
     statuses: ['Assigned'],
   },
   {
     key: 'active',
     label: 'Active',
-    title: 'Active deliveries',
-    description: 'Orders that are currently out for delivery.',
     statuses: ['Accepted', 'In Progress', 'Out for delivery'],
   },
   {
     key: 'completed',
     label: 'Completed',
-    title: 'Completed drops',
-    description: 'Orders that you have already delivered.',
     statuses: ['Completed', 'Delivered'],
   },
 ]
@@ -219,13 +213,32 @@ export default function OrdersFeed() {
 
   return (
     <div className="orders-surface">
-      <section className="orders-panel" aria-labelledby="orders-title">
+      <section className="orders-panel" aria-label="Orders">
         <header className="orders-panel-header">
-          <div className="orders-panel-copy">
-            <h1 className="orders-panel-title" id="orders-title">
-              {viewConfig.title}
-            </h1>
-            <p className="orders-panel-subtitle">{viewConfig.description}</p>
+          <div className="orders-tabs" role="tablist" aria-label="Order status">
+            {TAB_CONFIG.map((tab) => {
+              const tabCount = countsByTab[tab.key] ?? 0
+              const tabId = `${tab.key}-tab`
+              const panelId = `${tab.key}-panel`
+
+              return (
+                <button
+                  key={tab.key}
+                  id={tabId}
+                  type="button"
+                  role="tab"
+                  aria-selected={view === tab.key}
+                  aria-controls={panelId}
+                  className={['orders-tab', view === tab.key ? 'active' : '']
+                    .filter(Boolean)
+                    .join(' ')}
+                  onClick={() => setView(tab.key)}
+                >
+                  <span className="orders-tab-label">{tab.label}</span>
+                  <span className="orders-tab-count">{tabCount}</span>
+                </button>
+              )
+            })}
           </div>
           <div className="orders-panel-actions">
             <span className="orders-panel-count" aria-label={`${viewConfig.label} count`}>
@@ -242,32 +255,6 @@ export default function OrdersFeed() {
             </button>
           </div>
         </header>
-
-        <div className="orders-tabs" role="tablist" aria-label="Order status">
-          {TAB_CONFIG.map((tab) => {
-            const tabCount = countsByTab[tab.key] ?? 0
-            const tabId = `${tab.key}-tab`
-            const panelId = `${tab.key}-panel`
-
-            return (
-              <button
-                key={tab.key}
-                id={tabId}
-                type="button"
-                role="tab"
-                aria-selected={view === tab.key}
-                aria-controls={panelId}
-                className={['orders-tab', view === tab.key ? 'active' : '']
-                  .filter(Boolean)
-                  .join(' ')}
-                onClick={() => setView(tab.key)}
-              >
-                <span className="orders-tab-label">{tab.label}</span>
-                <span className="orders-tab-count">{tabCount}</span>
-              </button>
-            )
-          })}
-        </div>
 
         {error ? (
           <div className="form-error" role="alert">
