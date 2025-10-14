@@ -85,6 +85,8 @@ export default function OrdersFeed() {
   const [lastUpdated, setLastUpdated] = useState(null)
   const [view, setView] = useState(SECTION_CONFIG[0].key)
 
+  const isRefreshing = loading && orders.length > 0
+
   const loadOrders = useCallback(async () => {
     if (!token) {
       return
@@ -190,9 +192,27 @@ export default function OrdersFeed() {
             className="icon-button"
             onClick={loadOrders}
             disabled={loading}
-            aria-label="Refresh orders"
+            aria-label={isRefreshing ? 'Refreshing orders' : 'Refresh orders'}
           >
-            <span aria-hidden="true" className="refresh-icon" />
+            <svg
+              aria-hidden="true"
+              className={[
+                'refresh-icon',
+                isRefreshing ? 'refresh-icon--spinning' : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
+              viewBox="0 0 24 24"
+            >
+              <path
+                d="M16.5 7.5 21 3m0 0v5.25M21 3h-5.25m-2.25 3A7.5 7.5 0 0 0 5.4 5.4 7.5 7.5 0 0 0 3 12.75M7.5 16.5 3 21m0 0v-5.25M3 21h5.25M12.75 21a7.5 7.5 0 0 0 7.35-9.6"
+                fill="none"
+                stroke="currentColor"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="1.75"
+              />
+            </svg>
           </button>
         </header>
 

@@ -36,30 +36,43 @@
 }
 
 .orders-tabs {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  background: rgba(129, 140, 248, 0.1);
+  display: flex;
+  /* remove justify-content: space-between; */
+  gap: 0.35rem;
+  background: rgba(129,140,248,0.1);
   padding: 0.35rem;
   border-radius: 999px;
-  gap: 0.35rem;
+  overflow: hidden;           /* keeps glow inside the pill */
 }
 
 .orders-tab {
+  flex: 1 0 0;                /* equal width, don’t grow from text */
+  min-width: 0;               /* allow shrinking */
+  text-align: center;
+  white-space: nowrap;
   border: none;
   border-radius: 999px;
   background: transparent;
   padding: 0.65rem 0.85rem;
+  font-size: 0.6rem;
   font-weight: 600;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;     /* a tad tighter helps fit */
   text-transform: uppercase;
-  color: rgba(67, 56, 202, 0.55);
+  color: rgba(67,56,202,0.55);
   transition: background 150ms ease, color 150ms ease, box-shadow 150ms ease;
 }
 
-.orders-tab.active {
-  background: #ffffff;
+
+.orders-tab.active,
+.orders-tab[aria-selected="true"] {
+  background: #fff;
   color: #4338ca;
-  box-shadow: 0 12px 24px rgba(99, 102, 241, 0.2);
+  box-shadow: 0 12px 24px rgba(99,102,241,0.2);
+}
+
+/* Optional: scale down on very narrow screens */
+@media (max-width: 380px) {
+  .orders-tab { font-size: 0.8rem; letter-spacing: 0.05em; }
 }
 
 .orders-summary {
@@ -497,3 +510,36 @@
     grid-template-columns: 1fr;
   }
 }
+/* put this in Orders.css */
+
+.product-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.product-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.product-thumb {
+  flex: 0 0 64px;          /* fixed thumb column */
+  width: 64px;
+  height: 64px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #f3f4f6;     /* nice placeholder bg */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.product-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;     /* or 'cover' if you want it cropped */
+  display: block;
+}
+
