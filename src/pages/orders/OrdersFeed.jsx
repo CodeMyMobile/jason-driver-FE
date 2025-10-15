@@ -299,18 +299,27 @@ function resolveItemName(item) {
     item.title,
     item.productName,
     item.itemName,
+    item.displayName,
+    item.productTitle,
+    item.product_description,
+    item.productDescription,
+    item.itemLabel,
     item.variantName,
     item.variant,
     item.menuItem,
     item.description,
     item.label,
     item.item,
+    item.productLabel,
+    item.fullName,
     product?.name,
     product?.title,
     product?.productName,
     product?.itemName,
     product?.label,
     product?.description,
+    product?.displayName,
+    product?.productTitle,
   ]
 
   const resolved = candidates.find((value) => typeof value === 'string' && value.trim().length > 0)
@@ -321,10 +330,6 @@ function resolveItemName(item) {
 
   if (typeof item.sku === 'string' && item.sku.trim()) {
     return item.sku.trim()
-  }
-
-  if (typeof item.id === 'string' && item.id.trim()) {
-    return item.id.trim()
   }
 
   return null
@@ -669,7 +674,12 @@ export default function OrdersFeed() {
                     <section className="assigned-order-section" aria-label="Delivery address">
                       <p className="assigned-order-section-title">Delivery Address</p>
                       <address className="assigned-order-address">
-                        {mapsLink ? (
+                        {addressLines.map((line) => (
+                          <span key={line}>{line}</span>
+                        ))}
+                      </address>
+                      {mapsLink ? (
+                        <div className="assigned-order-address-actions">
                           <a
                             href={mapsLink}
                             target="_blank"
@@ -677,14 +687,11 @@ export default function OrdersFeed() {
                             className="assigned-order-map-link"
                             onClick={(event) => event.stopPropagation?.()}
                           >
-                            {addressLines.map((line) => (
-                              <span key={line}>{line}</span>
-                            ))}
+                            <span aria-hidden="true" className="assigned-order-map-icon" />
+                            <span>Google Maps</span>
                           </a>
-                        ) : (
-                          addressLines.map((line) => <span key={line}>{line}</span>)
-                        )}
-                      </address>
+                        </div>
+                      ) : null}
                     </section>
 
                     <section className="assigned-order-section" aria-label="Order items">
