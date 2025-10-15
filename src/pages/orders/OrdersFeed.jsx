@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
-import { fetchOrders } from '../../services/orderService'
+import { fetchOrders, updateOrderStatus } from '../../services/orderService'
 import './Orders.css'
 
 const SECTION_CONFIG = [
@@ -468,11 +468,11 @@ function resolveContactPhone(order) {
 export default function OrdersFeed() {
   const { token } = useAuth()
   const location = useLocation()
-  const navigate = useNavigate()
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [view, setView] = useState(SECTION_CONFIG[0].key)
+  const [processingOrders, setProcessingOrders] = useState(() => new Set())
 
   const focusKey = location.state?.focus
 
@@ -532,15 +532,50 @@ export default function OrdersFeed() {
     })
   }, [orders, viewConfig])
 
-  const handleNavigateToOrder = useCallback(
-    (sectionKey, orderData) => {
-      if (!orderData?._id) {
+  const handleAcceptOrder = useCallback(
+    async (orderData) => {
+      if (!orderData?._id || !token) {
         return
       }
 
-      navigate(`/orders/${sectionKey}/${orderData._id}`, { state: { order: orderData } })
+      setProcessingOrders((current) => {
+        const next = new Set(current)
+        next.add(orderData._id)
+        return next
+      })
+      setError(null)
+
+      try {
+        const response = await updateOrderStatus(orderData._id, 'Accepted', token)
+        const updatedOrder = response?.order ?? response ?? {}
+
+        setOrders((previousOrders) =>
+          previousOrders.map((order) => {
+            if (order._id !== orderData._id) {
+              return order
+            }
+
+            return {
+              ...order,
+              ...updatedOrder,
+              status: updatedOrder.status ?? 'Accepted',
+            }
+          }),
+        )
+
+        setView((currentView) => (currentView === 'accepted' ? currentView : 'accepted'))
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Unable to accept order.'
+        setError(message)
+      } finally {
+        setProcessingOrders((current) => {
+          const next = new Set(current)
+          next.delete(orderData._id)
+          return next
+        })
+      }
     },
-    [navigate],
+    [token],
   )
 
   if (loading && orders.length === 0) {
@@ -728,9 +763,10 @@ export default function OrdersFeed() {
                       <button
                         type="button"
                         className="assigned-order-accept"
-                        onClick={() => handleNavigateToOrder(sectionKey, order)}
+                        onClick={() => handleAcceptOrder(order)}
+                        disabled={processingOrders.has(order._id)}
                       >
-                        Accept Order
+                        {processingOrders.has(order._id) ? 'Accepting…' : 'Accept Order'}
                       </button>
                     </footer>
                   </article>
