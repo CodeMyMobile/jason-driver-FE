@@ -30,8 +30,8 @@ const STATUS_VARIANTS = {
     key: 'progress',
     statusLabel: 'In Progress',
     pillClass: 'progress',
-    primaryActionLabel: null,
-    primaryActionStatus: null,
+    primaryActionLabel: 'Complete',
+    primaryActionStatus: 'Completed',
     showMap: true,
     showCardDetails: true,
     showFinalizeActions: true,
@@ -486,6 +486,10 @@ function resolvePrimaryButtonLabel(variant) {
     return 'In progress'
   }
 
+  if (variant.primaryActionStatus === 'Completed') {
+    return 'Complete'
+  }
+
   return variant.primaryActionLabel ?? null
 }
 
@@ -517,6 +521,7 @@ export default function OrderDetails() {
 
   const variant = STATUS_VARIANTS[resolvedStatusKey] ?? STATUS_VARIANTS.assigned
   const isAcceptedVariant = variant.key === 'accepted'
+  const isProgressVariant = variant.key === 'progress'
   const requiresCardDetails = variant.showCardDetails
 
   const timeReference = useMemo(() => resolveOrderTimestamp(order), [order])
@@ -723,6 +728,10 @@ export default function OrderDetails() {
     })
   }, [navigate, order, resolvedStatusKey])
 
+  const handleBackToProgress = useCallback(() => {
+    navigate('/orders', { state: { focus: 'progress' } })
+  }, [navigate])
+
   if (loading && !order) {
     return (
       <div className="screen">
@@ -778,9 +787,196 @@ export default function OrderDetails() {
   const secondaryAddressHint =
     addressLines.length > 1 ? addressLines.slice(1, 3).join(', ') : null
 
+  const detailEntries = []
+
+  if (!isProgressVariant) {
+    detailEntries.push({
+      key: 'customer',
+      content: (
+        <span>
+          <strong>Customer:</strong> {contactName}
+        </span>
+      ),
+    })
+  }
+
+  if (!isProgressVariant) {
+    detailEntries.push({
+      key: 'address',
+      content: (
+        <span>
+          <strong>Address:</strong> {formatAddress(order.address)}
+        </span>
+      ),
+    })
+  }
+
+  if (order.owner?.orderCount != null) {
+    detailEntries.push({
+      key: 'orders-count',
+      content: (
+        <span>
+          <strong>Orders Count:</strong> {order.owner.orderCount}{' '}
+          {order.owner.orderCount === 1 ? <span className="order-badge">New Customer</span> : null}
+        </span>
+      ),
+    })
+  }
+
+  if (order.owner?.email) {
+    detailEntries.push({
+      key: 'email',
+      content: (
+        <span>
+          <strong>Email:</strong> {order.owner.email}
+        </span>
+      ),
+    })
+  }
+
+  if (order.owner?.dob) {
+    detailEntries.push({
+      key: 'dob',
+      content: (
+        <span>
+          <strong>DOB:</strong> {formatDate(order.owner.dob)}
+        </span>
+      ),
+    })
+  }
+
+  if (rawPhone && !isProgressVariant) {
+    detailEntries.push({
+      key: 'phone',
+      content: (
+        <span>
+          <strong>Phone:</strong>{' '}
+          <a href={phoneHref} rel="noreferrer">
+            {formattedPhone || rawPhone}
+          </a>
+        </span>
+      ),
+    })
+  }
+
+  detailEntries.push({
+    key: 'gift-delivery',
+    content: (
+      <span>
+        <strong>Gift Delivery:</strong> {order.giftDelivery ? 'Yes' : 'No'}
+      </span>
+    ),
+  })
+
+  if (order.giftDelivery && order.giftDeliveryDetails) {
+    const { recipientName, recipientPhone, recipientBusinessName, senderName, senderPhone, senderDOB } =
+      order.giftDeliveryDetails
+
+    if (recipientName) {
+      detailEntries.push({
+        key: 'recipient-name',
+        content: (
+          <span>
+            <strong>Recipient Name:</strong> {recipientName}
+          </span>
+        ),
+      })
+    }
+
+    if (recipientPhone) {
+      detailEntries.push({
+        key: 'recipient-phone',
+        content: (
+          <span>
+            <strong>Recipient Phone:</strong>{' '}
+            <a href={normalizePhoneHref(recipientPhone)} rel="noreferrer">
+              {formatPhoneNumber(recipientPhone) || recipientPhone}
+            </a>
+          </span>
+        ),
+      })
+    }
+
+    if (recipientBusinessName) {
+      detailEntries.push({
+        key: 'recipient-business',
+        content: (
+          <span>
+            <strong>Recipient Business:</strong> {recipientBusinessName}
+          </span>
+        ),
+      })
+    }
+
+    if (senderName) {
+      detailEntries.push({
+        key: 'sender-name',
+        content: (
+          <span>
+            <strong>Sender Name:</strong> {senderName}
+          </span>
+        ),
+      })
+    }
+
+    if (senderPhone) {
+      detailEntries.push({
+        key: 'sender-phone',
+        content: (
+          <span>
+            <strong>Sender Phone:</strong>{' '}
+            <a href={normalizePhoneHref(senderPhone)} rel="noreferrer">
+              {formatPhoneNumber(senderPhone) || senderPhone}
+            </a>
+          </span>
+        ),
+      })
+    }
+
+    if (senderDOB) {
+      detailEntries.push({
+        key: 'sender-dob',
+        content: (
+          <span>
+            <strong>Sender DOB:</strong> {formatDate(senderDOB)}
+          </span>
+        ),
+      })
+    }
+  }
+
+  if (variant.showCardDetails && cardDetails) {
+    detailEntries.push({
+      key: 'card-last4',
+      content: (
+        <span>
+          <strong>Last 4:</strong> **** **** **** {cardDetails.last4 || '—'}{' '}
+          {order.fromWallet ? <span className="order-badge order-badge-wallet">{order.walletMethod}</span> : null}
+        </span>
+      ),
+    })
+
+    detailEntries.push({
+      key: 'card-exp',
+      content: (
+        <span>
+          <strong>Expiration:</strong> {cardDetails.exp_month}/{cardDetails.exp_year}
+        </span>
+      ),
+    })
+  }
+
   return (
-    <div className="order-detail-screen">
+    <div className={['order-detail-screen', isProgressVariant ? 'progress-detail-layout' : '']
+      .filter(Boolean)
+      .join(' ')}>
       <LoaderOverlay show={actionLoading} label={overlayLabel} />
+
+      <div className="order-detail-controls">
+        <button type="button" className="order-back-button" onClick={handleBackToProgress}>
+          ← Back to In Progress
+        </button>
+      </div>
 
       <header className="order-detail-header" aria-label="Driver portal header">
         <div className="order-detail-brand">
@@ -813,7 +1009,7 @@ export default function OrderDetails() {
       <section
         className={`order-ticket ${isExpanded ? 'expanded' : 'collapsed'} ${
           isAcceptedVariant ? 'accepted-view' : ''
-        }`}
+        } ${isProgressVariant ? 'progress-view' : ''}`}
         aria-labelledby="order-ticket-heading"
       >
         <header className="order-ticket-header">
@@ -848,7 +1044,7 @@ export default function OrderDetails() {
           <span className={`order-status-pill ${variant.pillClass}`}>{variant.statusLabel}</span>
         ) : null}
 
-        {!isAcceptedVariant ? (
+        {!isAcceptedVariant && !isProgressVariant ? (
           <div className="order-compact-grid">
             <div className="order-compact-card">
               <span className="order-compact-label">Customer</span>
@@ -910,7 +1106,9 @@ export default function OrderDetails() {
             </div>
 
             <section
-              className={`order-section ${isAcceptedVariant ? 'accepted' : ''}`}
+              className={`order-section ${isAcceptedVariant ? 'accepted' : ''} ${
+                isProgressVariant ? 'progress' : ''
+              }`}
               aria-label="Delivery address"
             >
               <h2 className="order-section-title">Delivery Address</h2>
@@ -941,7 +1139,9 @@ export default function OrderDetails() {
             </section>
 
             <section
-              className={`order-section ${isAcceptedVariant ? 'accepted' : ''}`}
+              className={`order-section ${isAcceptedVariant ? 'accepted' : ''} ${
+                isProgressVariant ? 'progress' : ''
+              }`}
               aria-label="Order items"
             >
               <h2 className="order-section-title">Order Items</h2>
@@ -963,7 +1163,9 @@ export default function OrderDetails() {
             </section>
 
             <footer
-              className={`order-ticket-footer ${isAcceptedVariant ? 'accepted' : ''}`}
+              className={`order-ticket-footer ${isAcceptedVariant ? 'accepted' : ''} ${
+                isProgressVariant ? 'progress' : ''
+              }`}
             >
               <div className={`order-total ${isAcceptedVariant ? 'accepted' : ''}`}>
                 <span className="order-total-label">Order Total</span>
@@ -1021,99 +1223,14 @@ export default function OrderDetails() {
                 </p>
               ) : null}
               <div className="order-detail-grid">
-                <span>
-                  <strong>Customer:</strong> {contactName}
-                </span>
-                <span>
-                  <strong>Orders Count:</strong> {order.owner?.orderCount ?? 0}{' '}
-                  {order.owner?.orderCount === 1 ? (
-                    <span className="order-badge">New Customer</span>
-                  ) : null}
-                </span>
-                <span>
-                  <strong>Address:</strong> {formatAddress(order.address)}
-                </span>
-                {order.owner?.email ? (
-                  <span>
-                    <strong>Email:</strong> {order.owner.email}
-                  </span>
-                ) : null}
-                {order.owner?.dob ? (
-                  <span>
-                    <strong>DOB:</strong> {formatDate(order.owner.dob)}
-                  </span>
-                ) : null}
-                {rawPhone ? (
-                  <span>
-                    <strong>Phone:</strong>{' '}
-                    <a href={phoneHref} rel="noreferrer">
-                      {formattedPhone || rawPhone}
-                    </a>
-                  </span>
-                ) : null}
-                <span>
-                  <strong>Gift Delivery:</strong> {order.giftDelivery ? 'Yes' : 'No'}
-                </span>
-                {order.giftDelivery && order.giftDeliveryDetails ? (
-                  <>
-                    {order.giftDeliveryDetails.recipientName ? (
-                      <span>
-                        <strong>Recipient Name:</strong> {order.giftDeliveryDetails.recipientName}
-                      </span>
-                    ) : null}
-                    {order.giftDeliveryDetails.recipientPhone ? (
-                      <span>
-                        <strong>Recipient Phone:</strong>{' '}
-                        <a href={normalizePhoneHref(order.giftDeliveryDetails.recipientPhone)} rel="noreferrer">
-                          {formatPhoneNumber(order.giftDeliveryDetails.recipientPhone) ||
-                            order.giftDeliveryDetails.recipientPhone}
-                        </a>
-                      </span>
-                    ) : null}
-                    {order.giftDeliveryDetails.recipientBusinessName ? (
-                      <span>
-                        <strong>Recipient Business:</strong> {order.giftDeliveryDetails.recipientBusinessName}
-                      </span>
-                    ) : null}
-                    {order.giftDeliveryDetails.senderName ? (
-                      <span>
-                        <strong>Sender Name:</strong> {order.giftDeliveryDetails.senderName}
-                      </span>
-                    ) : null}
-                    {order.giftDeliveryDetails.senderPhone ? (
-                      <span>
-                        <strong>Sender Phone:</strong>{' '}
-                        <a href={normalizePhoneHref(order.giftDeliveryDetails.senderPhone)} rel="noreferrer">
-                          {formatPhoneNumber(order.giftDeliveryDetails.senderPhone) ||
-                            order.giftDeliveryDetails.senderPhone}
-                        </a>
-                      </span>
-                    ) : null}
-                    {order.giftDeliveryDetails.senderDOB ? (
-                      <span>
-                        <strong>Sender DOB:</strong> {formatDate(order.giftDeliveryDetails.senderDOB)}
-                      </span>
-                    ) : null}
-                  </>
-                ) : null}
+                {detailEntries.map((entry) => (
+                  <span key={entry.key}>{entry.content}</span>
+                ))}
               </div>
               {cardError ? (
                 <p className="notice error" role="alert">
                   {cardError}
                 </p>
-              ) : null}
-              {variant.showCardDetails && cardDetails ? (
-                <div className="order-detail-grid" style={{ marginTop: '0.75rem' }}>
-                  <span>
-                    <strong>Last 4:</strong> **** **** **** {cardDetails.last4 || '—'}{' '}
-                    {order.fromWallet ? (
-                      <span className="order-badge order-badge-wallet">{order.walletMethod}</span>
-                    ) : null}
-                  </span>
-                  <span>
-                    <strong>Expiration:</strong> {cardDetails.exp_month}/{cardDetails.exp_year}
-                  </span>
-                </div>
               ) : null}
               {cardLoading ? <p className="order-card-meta">Loading payment details…</p> : null}
             </section>

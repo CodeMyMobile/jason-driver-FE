@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { fetchOrders, updateOrderStatus } from '../../services/orderService'
 import './Orders.css'
@@ -527,6 +527,7 @@ function resolveContactPhone(order) {
 export default function OrdersFeed() {
   const { token } = useAuth()
   const location = useLocation()
+  const navigate = useNavigate()
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -637,6 +638,18 @@ export default function OrdersFeed() {
     [token],
   )
 
+  const handleViewProgressOrder = useCallback(
+    (orderData) => {
+      if (!orderData?._id) {
+        return
+      }
+
+      const targetStatus = resolveStatusKey(orderData.status) || 'progress'
+      navigate(`/orders/${targetStatus}/${orderData._id}`, { state: { order: orderData } })
+    },
+    [navigate],
+  )
+
   const handleStartOrder = useCallback(
     async (orderData) => {
       if (!orderData?._id || !token) {
@@ -695,6 +708,7 @@ export default function OrdersFeed() {
     'orders-list',
     viewConfig.key === 'assigned' ? 'orders-list--assigned' : '',
     viewConfig.key === 'accepted' ? 'orders-list--accepted' : '',
+    viewConfig.key === 'progress' ? 'orders-list--progress' : '',
   ]
     .filter(Boolean)
     .join(' ')
@@ -1005,6 +1019,133 @@ export default function OrdersFeed() {
                         disabled={isProcessing}
                       >
                         {isProcessing ? 'Updating…' : 'In progress'}
+                      </button>
+                    </footer>
+                  </article>
+                )
+              }
+
+              if (viewConfig.key === 'progress') {
+                const orderNumber = formatOrderNumber(order)
+                const contactName = formatName(order.owner)
+                const contactPhone = resolveContactPhone(order)
+                const phoneDisplay = formatPhoneNumber(contactPhone)
+                const phoneHref = normalizePhoneHref(contactPhone)
+                const addressLines = buildAddressLines(order.address)
+                const navigationLinks = buildNavigationLinks(order.address)
+                const navigationOptions = [
+                  navigationLinks.google
+                    ? { key: 'google', label: 'Google Maps', href: navigationLinks.google }
+                    : null,
+                  navigationLinks.apple
+                    ? { key: 'apple', label: 'Apple Maps', href: navigationLinks.apple }
+                    : null,
+                  navigationLinks.waze
+                    ? { key: 'waze', label: 'Waze', href: navigationLinks.waze }
+                    : null,
+                ].filter(Boolean)
+                const items = resolveItems(order)
+                const orderTotalAmount = resolveOrderTotal(order, items)
+                const orderTotalDisplay = formatCurrencyValue(orderTotalAmount)
+                const timeSinceOrder = formatElapsedTime(resolveOrderTimestamp(order))
+                const initials = getInitials(contactName)
+
+                return (
+                  <article
+                    key={order._id}
+                    className="assigned-order-card progress-order-card"
+                    role="listitem"
+                    aria-label={`Order ${orderNumber}`}
+                  >
+                    <header className="assigned-order-header progress-order-header">
+                      <div className="assigned-order-heading">
+                        <span className="assigned-order-label">Order</span>
+                        <span className="assigned-order-number">#{orderNumber}</span>
+                      </div>
+                      <div className="progress-order-header-meta">
+                        {timeSinceOrder ? (
+                          <div className="assigned-order-timer progress-order-timer" aria-label="Time since order">
+                            <span className="assigned-order-timer-label">Time since order</span>
+                            <span className="assigned-order-timer-value">{timeSinceOrder}</span>
+                          </div>
+                        ) : null}
+                        <span className="order-status-pill progress">In Progress</span>
+                      </div>
+                    </header>
+
+                    <section className="assigned-order-section" aria-label="Customer details">
+                      <div className="assigned-order-customer">
+                        <span className="assigned-order-avatar" aria-hidden="true">
+                          {initials}
+                        </span>
+                        <div className="assigned-order-contact">
+                          <p className="assigned-order-name">{contactName}</p>
+                          {phoneDisplay ? (
+                            <a
+                              href={phoneHref ?? undefined}
+                              className="assigned-order-phone"
+                              onClick={(event) => event.stopPropagation?.()}
+                            >
+                              {phoneDisplay}
+                            </a>
+                          ) : null}
+                        </div>
+                      </div>
+                    </section>
+
+                    <section className="assigned-order-section" aria-label="Delivery address">
+                      <p className="assigned-order-section-title">Delivery Address</p>
+                      <address className="assigned-order-address">
+                        {addressLines.map((line) => (
+                          <span key={line}>{line}</span>
+                        ))}
+                      </address>
+                      {navigationOptions.length > 0 ? (
+                        <div className="assigned-order-address-actions progress-order-address-actions">
+                          {navigationOptions.map((option) => (
+                            <a
+                              key={option.key}
+                              href={option.href}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="assigned-order-map-link"
+                              onClick={(event) => event.stopPropagation?.()}
+                            >
+                              <span aria-hidden="true" className="assigned-order-map-icon" />
+                              <span>{option.label}</span>
+                            </a>
+                          ))}
+                        </div>
+                      ) : null}
+                    </section>
+
+                    <section className="assigned-order-section" aria-label="Order items">
+                      <p className="assigned-order-section-title">Order Items</p>
+                      <ul className="assigned-order-items">
+                        {items.length > 0 ? (
+                          items.map((item) => (
+                            <li key={item.id} className="assigned-order-item">
+                              <span className="assigned-order-item-name">{item.name}</span>
+                              <span className="assigned-order-item-quantity">{item.quantity}x</span>
+                            </li>
+                          ))
+                        ) : (
+                          <li className="assigned-order-item empty">No items listed.</li>
+                        )}
+                      </ul>
+                    </section>
+
+                    <footer className="assigned-order-footer progress-order-footer">
+                      <div className="assigned-order-total">
+                        <span className="assigned-order-total-label">Order Total</span>
+                        <span className="assigned-order-total-value">{orderTotalDisplay ?? '—'}</span>
+                      </div>
+                      <button
+                        type="button"
+                        className="assigned-order-accept progress-order-complete"
+                        onClick={() => handleViewProgressOrder(order)}
+                      >
+                        Complete
                       </button>
                     </footer>
                   </article>
