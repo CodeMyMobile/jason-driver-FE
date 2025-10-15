@@ -821,8 +821,8 @@
   background: #fff;
   border: 1px solid rgba(226, 232, 240, 0.9);
   box-shadow: 0 32px 55px rgba(148, 163, 235, 0.25);
-  padding: 2.25rem 2.5rem;
-  gap: 1.75rem;
+  padding: 2rem 2.15rem;
+  gap: 1.5rem;
 }
 
 .order-ticket.accepted-view .order-ticket-header {
@@ -831,36 +831,41 @@
 
 .order-ticket.accepted-view .order-ticket-label {
   color: #475569;
-  letter-spacing: 0.16em;
+  font-size: 0.7rem;
+  letter-spacing: 0.14em;
 }
 
 .order-ticket.accepted-view .order-ticket-number {
   color: #0f172a;
-  font-size: 1.6rem;
+  font-size: 1.35rem;
+  font-weight: 600;
 }
 
 .order-ticket.accepted-view .order-ticket-controls {
-  gap: 0.75rem;
+  gap: 0.65rem;
 }
 
 .order-ticket.accepted-view .order-ticket-timer {
-  background: rgba(252, 211, 77, 0.2);
-  border: 1px solid rgba(251, 191, 36, 0.45);
+  background: rgba(252, 211, 77, 0.18);
+  border: 1px solid rgba(251, 191, 36, 0.35);
   border-radius: 999px;
-  padding: 0.75rem 1.15rem;
+  padding: 0.65rem 1rem;
   align-items: flex-end;
-  min-width: 148px;
+  min-width: 136px;
 }
 
 .order-ticket.accepted-view .order-ticket-timer-label {
   order: -1;
-  color: rgba(180, 83, 9, 0.75);
-  font-weight: 700;
+  color: rgba(180, 83, 9, 0.7);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
 }
 
 .order-ticket.accepted-view .order-ticket-timer-value {
   color: #b45309;
-  font-size: 1.35rem;
+  font-size: 1.15rem;
+  font-weight: 600;
 }
 
 .order-ticket.accepted-view .order-status-pill {
@@ -1099,10 +1104,10 @@
 }
 
 .order-contact.accepted {
-  padding: 1.25rem 1.5rem;
-  border-radius: 1.35rem;
+  padding: 1.1rem 1.35rem;
+  border-radius: 1.25rem;
   background: rgba(79, 70, 229, 0.08);
-  border: 1px solid rgba(129, 140, 248, 0.2);
+  border: 1px solid rgba(129, 140, 248, 0.18);
 }
 
 .order-avatar {
@@ -1119,11 +1124,11 @@
 }
 
 .order-contact.accepted .order-avatar {
-  width: 64px;
-  height: 64px;
+  width: 56px;
+  height: 56px;
   background: linear-gradient(135deg, #6366f1, #4338ca);
   color: #fff;
-  font-size: 1.3rem;
+  font-size: 1.1rem;
 }
 
 .order-contact-details {
@@ -1134,13 +1139,13 @@
 
 .order-contact-name {
   margin: 0;
-  font-size: 1rem;
+  font-size: 0.95rem;
   font-weight: 600;
   color: #1f1740;
 }
 
 .order-contact-phone {
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   font-weight: 600;
   color: #4338ca;
   text-decoration: none;
@@ -1157,11 +1162,11 @@
 }
 
 .order-section.accepted {
-  padding: 1.25rem 1.5rem;
-  border-radius: 1.35rem;
+  padding: 1.15rem 1.35rem;
+  border-radius: 1.25rem;
   background: rgba(248, 250, 252, 0.95);
-  border: 1px solid rgba(203, 213, 225, 0.85);
-  gap: 1rem;
+  border: 1px solid rgba(203, 213, 225, 0.78);
+  gap: 0.85rem;
 }
 
 .order-section-title {
@@ -1175,6 +1180,8 @@
 
 .order-ticket.accepted-view .order-section-title {
   color: #475569;
+  font-size: 0.8rem;
+  letter-spacing: 0.11em;
 }
 
 .order-address {
@@ -1187,8 +1194,9 @@
 }
 
 .order-ticket.accepted-view .order-address {
-  font-size: 0.98rem;
+  font-size: 0.9rem;
   color: #0f172a;
+  line-height: 1.45;
 }
 
 .order-map-links {
@@ -1206,6 +1214,8 @@
 
 .order-ticket.accepted-view .order-map-links a {
   color: #2563eb;
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
 }
 
 .order-map-links a:hover {
@@ -1222,7 +1232,7 @@
 }
 
 .order-ticket.accepted-view .order-items-list {
-  gap: 0.65rem;
+  gap: 0.55rem;
 }
 
 .order-item-row {
@@ -1230,10 +1240,11 @@
   align-items: center;
   justify-content: space-between;
   background: rgba(99, 102, 241, 0.08);
-  padding: 0.75rem 1rem;
+  padding: 0.7rem 0.9rem;
   border-radius: 1rem;
   color: #1f1740;
   font-weight: 600;
+  font-size: 0.9rem;
 }
 
 .order-item-row-empty {
@@ -1246,11 +1257,11 @@
 .order-item-name {
   flex: 1;
   margin-right: 1rem;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
 }
 
 .order-item-quantity {
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   color: #4338ca;
 }
 
@@ -1258,16 +1269,19 @@
   background: #fff;
   border: 1px solid rgba(226, 232, 240, 0.9);
   box-shadow: none;
+  font-size: 0.88rem;
 }
 
 .order-ticket.accepted-view .order-item-quantity {
   color: #111827;
+  font-size: 0.85rem;
 }
 
 .order-ticket-footer {
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  font-size: 0.9rem;
 }
 
 .order-ticket-footer.accepted {
@@ -1296,6 +1310,8 @@
 
 .order-ticket.accepted-view .order-total-label {
   color: #475569;
+  font-size: 0.78rem;
+  letter-spacing: 0.1em;
 }
 
 .order-total-value {
@@ -1306,7 +1322,8 @@
 
 .order-ticket.accepted-view .order-total-value {
   color: #0f172a;
-  font-size: 1.35rem;
+  font-size: 1.15rem;
+  font-weight: 600;
 }
 
 .order-action-button {
@@ -1314,14 +1331,14 @@
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  padding: 0.9rem 1.1rem;
-  border-radius: 1rem;
+  padding: 0.85rem 1.05rem;
+  border-radius: 0.95rem;
   border: none;
   background: linear-gradient(135deg, #6366f1, #4338ca);
   color: #fff;
   font-weight: 700;
-  font-size: 0.95rem;
-  letter-spacing: 0.12em;
+  font-size: 0.9rem;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   box-shadow: 0 20px 45px rgba(99, 102, 241, 0.25);
   cursor: pointer;
@@ -1335,7 +1352,7 @@
 
 .order-action-button.accepted-primary {
   background: linear-gradient(135deg, #22c55e, #16a34a);
-  box-shadow: 0 26px 52px rgba(34, 197, 94, 0.28);
+  box-shadow: 0 22px 48px rgba(34, 197, 94, 0.24);
 }
 
 .order-action-button.accepted-primary:hover {
