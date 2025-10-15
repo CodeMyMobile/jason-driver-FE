@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { fetchOrders } from '../../services/orderService'
 import './Orders.css'
@@ -77,13 +77,318 @@ function resolveStatusKey(status) {
   return STATUS_TO_SECTION[status.toLowerCase()] ?? SECTION_CONFIG[0].key
 }
 
+function formatOrderNumber(order) {
+  if (!order) {
+    return '—'
+  }
+
+  const candidate =
+    order.orderNumber ||
+    order.orderId ||
+    order.orderNo ||
+    order.order_id ||
+    order.number ||
+    order.reference ||
+    order.shortId ||
+    order.short_id ||
+    null
+
+  if (candidate) {
+    return candidate.toString().replace(/^#/, '')
+  }
+
+  if (order.id) {
+    const sanitized = order.id.toString().replace(/^#/, '')
+    if (sanitized.length >= 6) {
+      return sanitized.slice(-6)
+    }
+
+    return sanitized
+  }
+
+  if (order._id) {
+    const suffix = order._id.toString().slice(-6)
+    return suffix.toUpperCase()
+  }
+
+  return '—'
+}
+
+function resolveOrderTimestamp(order) {
+  if (!order) {
+    return null
+  }
+
+  return (
+    order.createdAt ||
+    order.created_at ||
+    order.created ||
+    order.orderDate ||
+    order.order_date ||
+    order.placedAt ||
+    order.timestamp ||
+    order.updatedAt ||
+    null
+  )
+}
+
+function formatElapsedTime(value) {
+  if (!value) {
+    return null
+  }
+
+  const date = value instanceof Date ? value : new Date(value)
+
+  if (Number.isNaN(date.getTime())) {
+    return null
+  }
+
+  const diffMs = Date.now() - date.getTime()
+
+  if (diffMs < 0) {
+    return '00:00'
+  }
+
+  const totalSeconds = Math.floor(diffMs / 1000)
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+}
+
+function getInitials(name) {
+  if (!name) {
+    return '??'
+  }
+
+  const parts = name
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+
+  if (parts.length === 0) {
+    return '??'
+  }
+
+  const initials = parts
+    .slice(0, 2)
+    .map((part) => part[0].toUpperCase())
+    .join('')
+
+  return initials || parts[0].slice(0, 2).toUpperCase()
+}
+
+function formatPhoneNumber(phone) {
+  if (!phone) {
+    return null
+  }
+
+  const digits = phone.replace(/\D/g, '')
+
+  if (digits.length === 10) {
+    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`
+  }
+
+  if (digits.length === 11 && digits.startsWith('1')) {
+    return `+1 (${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`
+  }
+
+  return phone
+}
+
+function normalizePhoneHref(phone) {
+  if (!phone) {
+    return null
+  }
+
+  const digits = phone.replace(/\D/g, '')
+
+  if (!digits) {
+    return `tel:${phone}`
+  }
+
+  if (digits.length === 11 && digits.startsWith('1')) {
+    return `tel:+${digits}`
+  }
+
+  if (digits.length === 10) {
+    return `tel:+1${digits}`
+  }
+
+  return `tel:${digits}`
+}
+
+function buildAddressLines(address) {
+  if (!address) {
+    return ['No address provided']
+  }
+
+  if (typeof address === 'string') {
+    return [address]
+  }
+
+  const lines = []
+
+  const primaryStreet =
+    address.street1 || address.street || address.address1 || address.line1 || address.formattedAddress
+  if (primaryStreet) {
+    lines.push(primaryStreet)
+  }
+
+  const secondaryStreet = address.street2 || address.address2 || address.line2
+  if (secondaryStreet) {
+    lines.push(secondaryStreet)
+  }
+
+  if (address.apartment) {
+    lines.push(`Apt ${address.apartment}`)
+  }
+
+  if (address.description) {
+    lines.push(address.description)
+  }
+
+  if (address.fullAddress) {
+    lines.push(address.fullAddress)
+  }
+
+  const cityLine = [address.city, address.state, address.zip || address.postalCode]
+    .filter(Boolean)
+    .join(', ')
+
+  if (cityLine) {
+    lines.push(cityLine)
+  }
+
+  return lines.length > 0 ? Array.from(new Set(lines.filter(Boolean))) : ['No address provided']
+}
+
+function resolveItems(order) {
+  if (!order) {
+    return []
+  }
+
+  if (Array.isArray(order.products) && order.products.length > 0) {
+    const quantities = Array.isArray(order.qty) ? order.qty : []
+
+    return order.products.map((product, index) => {
+      const quantity = Number.isFinite(quantities[index]) ? quantities[index] : product.quantity
+      return {
+        id: product.id || product._id || `${product.name}-${index}`,
+        name: product.name || product.title || product.productName || 'Item',
+        quantity: Number.isFinite(quantity) && quantity > 0 ? quantity : 1,
+      }
+    })
+  }
+
+  if (Array.isArray(order.items) && order.items.length > 0) {
+    return order.items.map((item, index) => ({
+      id: item.id || item._id || `${item.name}-${index}`,
+      name: item.name || item.title || item.productName || 'Item',
+      quantity: Number.isFinite(item.quantity) && item.quantity > 0 ? item.quantity : 1,
+      price: item.price || item.amount,
+    }))
+  }
+
+  if (order.cart && Array.isArray(order.cart.items) && order.cart.items.length > 0) {
+    return order.cart.items.map((item, index) => ({
+      id: item.id || item._id || `${item.name}-${index}`,
+      name: item.name || item.title || item.productName || 'Item',
+      quantity: Number.isFinite(item.quantity) && item.quantity > 0 ? item.quantity : 1,
+      price: item.price || item.amount,
+    }))
+  }
+
+  return []
+}
+
+function resolveOrderTotal(order, items) {
+  if (!order) {
+    return null
+  }
+
+  const candidate =
+    order.total ||
+    order.totalAmount ||
+    order.orderTotal ||
+    order.amount ||
+    order.totalDue ||
+    (order.totals && (order.totals.grandTotal || order.totals.total)) ||
+    (order.payment && order.payment.total)
+
+  if (typeof candidate === 'number' && Number.isFinite(candidate)) {
+    return candidate
+  }
+
+  if (typeof candidate === 'string') {
+    const parsed = Number.parseFloat(candidate.replace(/[^0-9.-]/g, ''))
+    if (Number.isFinite(parsed)) {
+      return parsed
+    }
+  }
+
+  if (!Array.isArray(items) || items.length === 0) {
+    return null
+  }
+
+  const computed = items.reduce((sum, item) => {
+    const priceRaw = item.price
+    const price =
+      typeof priceRaw === 'number'
+        ? priceRaw
+        : typeof priceRaw === 'string'
+        ? Number.parseFloat(priceRaw.replace(/[^0-9.-]/g, ''))
+        : null
+
+    if (!Number.isFinite(price)) {
+      return sum
+    }
+
+    const quantity = Number.isFinite(item.quantity) ? item.quantity : 1
+    return sum + price * quantity
+  }, 0)
+
+  return Number.isFinite(computed) && computed > 0 ? computed : null
+}
+
+function formatCurrencyValue(value) {
+  if (value == null) {
+    return null
+  }
+
+  const number =
+    typeof value === 'number' ? value : Number.parseFloat(String(value).replace(/[^0-9.-]/g, ''))
+
+  if (!Number.isFinite(number)) {
+    return null
+  }
+
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(number)
+}
+
+function resolveContactPhone(order) {
+  if (!order) {
+    return null
+  }
+
+  return (
+    order.owner?.phone ||
+    order.owner?.phoneNumber ||
+    order.owner?.mobile ||
+    order.contactPhone ||
+    order.phoneNumber ||
+    order.phone ||
+    null
+  )
+}
+
 export default function OrdersFeed() {
   const { token } = useAuth()
   const location = useLocation()
+  const navigate = useNavigate()
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [lastUpdated, setLastUpdated] = useState(null)
   const [view, setView] = useState(SECTION_CONFIG[0].key)
 
   const focusKey = location.state?.focus
@@ -101,7 +406,6 @@ export default function OrdersFeed() {
     try {
       const data = await fetchOrders(token)
       setOrders(Array.isArray(data) ? data : [])
-      setLastUpdated(new Date())
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unable to load orders.'
       setError(message)
@@ -132,20 +436,6 @@ export default function OrdersFeed() {
     [view],
   )
 
-  const sectionCounts = useMemo(() => {
-    const counts = SECTION_CONFIG.reduce((acc, section) => {
-      acc[section.key] = 0
-      return acc
-    }, {})
-
-    orders.forEach((order) => {
-      const key = resolveStatusKey(order.status)
-      counts[key] = (counts[key] ?? 0) + 1
-    })
-
-    return counts
-  }, [orders])
-
   const displayedOrders = useMemo(() => {
     const statuses = SECTION_STATUS_MAP[viewConfig.key] ?? []
     const statusSet = new Set(statuses.map((status) => status.toLowerCase()))
@@ -159,31 +449,16 @@ export default function OrdersFeed() {
     })
   }, [orders, viewConfig])
 
-  const totalOrders = useMemo(() => orders.length, [orders])
+  const handleNavigateToOrder = useCallback(
+    (sectionKey, orderData) => {
+      if (!orderData?._id) {
+        return
+      }
 
-  const busiestSection = useMemo(() => {
-    return SECTION_CONFIG.reduce(
-      (acc, section) => {
-        const count = sectionCounts[section.key] ?? 0
-
-        if (!acc || count > acc.count) {
-          return { ...section, count }
-        }
-
-        return acc
-      },
-      null,
-    )
-  }, [sectionCounts])
-
-  const calmestSection = useMemo(() => {
-    const sorted = SECTION_CONFIG.map((section) => ({
-      ...section,
-      count: sectionCounts[section.key] ?? 0,
-    })).sort((a, b) => a.count - b.count)
-
-    return sorted[0]
-  }, [sectionCounts])
+      navigate(`/orders/${sectionKey}/${orderData._id}`, { state: { order: orderData } })
+    },
+    [navigate],
+  )
 
   if (loading && orders.length === 0) {
     return (
@@ -192,6 +467,10 @@ export default function OrdersFeed() {
       </div>
     )
   }
+
+  const listClassName = ['orders-list', viewConfig.key === 'assigned' ? 'orders-list--assigned' : '']
+    .filter(Boolean)
+    .join(' ')
 
   return (
     <div className="orders-surface">
@@ -256,7 +535,7 @@ export default function OrdersFeed() {
           </div>
         ) : null}
 
-        <div className="orders-list" role="list">
+        <div className={listClassName} role="list">
           {displayedOrders.length === 0 ? (
             <div className="orders-empty" role="status">
               <p>No {viewConfig.status.toLowerCase()} orders yet.</p>
@@ -264,6 +543,100 @@ export default function OrdersFeed() {
           ) : (
             displayedOrders.map((order) => {
               const sectionKey = resolveStatusKey(order.status)
+
+              if (viewConfig.key === 'assigned') {
+                const orderNumber = formatOrderNumber(order)
+                const contactName = formatName(order.owner)
+                const contactPhone = resolveContactPhone(order)
+                const phoneDisplay = formatPhoneNumber(contactPhone)
+                const phoneHref = normalizePhoneHref(contactPhone)
+                const addressLines = buildAddressLines(order.address)
+                const items = resolveItems(order)
+                const orderTotalAmount = resolveOrderTotal(order, items)
+                const orderTotalDisplay = formatCurrencyValue(orderTotalAmount)
+                const timeSinceOrder = formatElapsedTime(resolveOrderTimestamp(order))
+                const initials = getInitials(contactName)
+
+                return (
+                  <article
+                    key={order._id}
+                    className="assigned-order-card"
+                    role="listitem"
+                    aria-label={`Order ${orderNumber}`}
+                  >
+                    <header className="assigned-order-header">
+                      <div className="assigned-order-heading">
+                        <span className="assigned-order-label">Order</span>
+                        <span className="assigned-order-number">#{orderNumber}</span>
+                      </div>
+                      {timeSinceOrder ? (
+                        <span className="assigned-order-timer" aria-label="Time since order">
+                          {timeSinceOrder}
+                        </span>
+                      ) : null}
+                    </header>
+
+                    <section className="assigned-order-section" aria-label="Customer details">
+                      <div className="assigned-order-customer">
+                        <span className="assigned-order-avatar" aria-hidden="true">
+                          {initials}
+                        </span>
+                        <div className="assigned-order-contact">
+                          <p className="assigned-order-name">{contactName}</p>
+                          {phoneDisplay ? (
+                            <a
+                              href={phoneHref ?? undefined}
+                              className="assigned-order-phone"
+                              onClick={(event) => event.stopPropagation?.()}
+                            >
+                              {phoneDisplay}
+                            </a>
+                          ) : null}
+                        </div>
+                      </div>
+                    </section>
+
+                    <section className="assigned-order-section" aria-label="Delivery address">
+                      <p className="assigned-order-section-title">Delivery Address</p>
+                      <address className="assigned-order-address">
+                        {addressLines.map((line) => (
+                          <span key={line}>{line}</span>
+                        ))}
+                      </address>
+                    </section>
+
+                    <section className="assigned-order-section" aria-label="Order items">
+                      <p className="assigned-order-section-title">Order Items</p>
+                      <ul className="assigned-order-items">
+                        {items.length > 0 ? (
+                          items.map((item) => (
+                            <li key={item.id} className="assigned-order-item">
+                              <span className="assigned-order-item-name">{item.name}</span>
+                              <span className="assigned-order-item-quantity">{item.quantity}x</span>
+                            </li>
+                          ))
+                        ) : (
+                          <li className="assigned-order-item empty">No items listed.</li>
+                        )}
+                      </ul>
+                    </section>
+
+                    <footer className="assigned-order-footer">
+                      <div className="assigned-order-total">
+                        <span className="assigned-order-total-label">Order Total</span>
+                        <span className="assigned-order-total-value">{orderTotalDisplay ?? '—'}</span>
+                      </div>
+                      <button
+                        type="button"
+                        className="assigned-order-accept"
+                        onClick={() => handleNavigateToOrder(sectionKey, order)}
+                      >
+                        Accept Order
+                      </button>
+                    </footer>
+                  </article>
+                )
+              }
 
               return (
                 <Link
