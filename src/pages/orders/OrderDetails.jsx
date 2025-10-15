@@ -38,6 +38,12 @@ const STATUS_VARIANTS = {
   },
 }
 
+const STATUS_TABS = [
+  { key: 'assigned', label: 'Pending' },
+  { key: 'accepted', label: 'Active' },
+  { key: 'progress', label: 'Completed' },
+]
+
 function inferStatusKey(status) {
   if (!status) {
     return 'assigned'
@@ -506,6 +512,15 @@ export default function OrderDetails() {
 
   const timeReference = useMemo(() => resolveOrderTimestamp(order), [order])
   const [timeSinceOrder, setTimeSinceOrder] = useState(() => formatElapsedTime(timeReference))
+  const [isExpanded, setIsExpanded] = useState(
+    () => variant.showMap || variant.showFinalizeActions || false,
+  )
+
+  useEffect(() => {
+    if (variant.showMap || variant.showFinalizeActions) {
+      setIsExpanded(true)
+    }
+  }, [variant.showFinalizeActions, variant.showMap])
 
   useEffect(() => {
     let ignore = false
@@ -603,6 +618,21 @@ export default function OrderDetails() {
       ignore = true
     }
   }, [order, token, requiresCardDetails, variant.showCardDetails])
+
+  const toggleExpanded = useCallback(() => {
+    setIsExpanded((prev) => !prev)
+  }, [])
+
+  const handleTabSelect = useCallback(
+    (tabKey) => {
+      if (!tabKey) {
+        return
+      }
+
+      navigate('/orders', { state: { focus: tabKey } })
+    },
+    [navigate],
+  )
 
   const handlePrimaryAction = useCallback(async () => {
     if (!order || !variant.primaryActionStatus || !token) {
@@ -731,12 +761,46 @@ export default function OrderDetails() {
     (variant.showCardDetails && (cardDetails || cardLoading)) ||
     cardError,
   )
+  const primaryAddressLine = addressLines[0] ?? 'No address provided'
+  const secondaryAddressHint =
+    addressLines.length > 1 ? addressLines.slice(1, 3).join(', ') : null
 
   return (
     <div className="order-detail-screen">
       <LoaderOverlay show={actionLoading} label={overlayLabel} />
 
-      <section className="order-ticket" aria-labelledby="order-ticket-heading">
+      <header className="order-detail-header" aria-label="Driver portal header">
+        <div className="order-detail-brand">
+          <div className="order-detail-brand-text">
+            <span className="order-detail-brand-title">Jason's Delivery</span>
+            <span className="order-detail-brand-subtitle">Driver Portal</span>
+          </div>
+          <div className="order-detail-badge" aria-label="Program: 7oct test">
+            <span className="order-detail-badge-label">7oct test</span>
+            <span className="order-detail-badge-icon" aria-hidden="true">🛰️</span>
+          </div>
+        </div>
+        <nav className="order-detail-tabs" aria-label="Order status tabs">
+          {STATUS_TABS.map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              className={['order-detail-tab', tab.key === resolvedStatusKey ? 'active' : '']
+                .filter(Boolean)
+                .join(' ')}
+              aria-pressed={tab.key === resolvedStatusKey}
+              onClick={() => handleTabSelect(tab.key)}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </nav>
+      </header>
+
+      <section
+        className={`order-ticket ${isExpanded ? 'expanded' : 'collapsed'}`}
+        aria-labelledby="order-ticket-heading"
+      >
         <header className="order-ticket-header">
           <div>
             <p className="order-ticket-label">Order</p>
@@ -744,90 +808,146 @@ export default function OrderDetails() {
               {formatOrderNumber(order)}
             </h1>
           </div>
-          {timeSinceOrder ? (
-            <div className="order-ticket-timer">
-              <span className="order-ticket-timer-value">{timeSinceOrder}</span>
-              <span className="order-ticket-timer-label">Time since order</span>
-            </div>
-          ) : null}
+          <div className="order-ticket-controls">
+            {timeSinceOrder ? (
+              <div className="order-ticket-timer">
+                <span className="order-ticket-timer-value">{timeSinceOrder}</span>
+                <span className="order-ticket-timer-label">Time since order</span>
+              </div>
+            ) : null}
+            <button
+              type="button"
+              className="order-collapse-toggle"
+              onClick={toggleExpanded}
+              aria-expanded={isExpanded}
+            >
+              {isExpanded ? 'Hide details' : 'View details'}
+              <span aria-hidden="true">{isExpanded ? '▴' : '▾'}</span>
+            </button>
+          </div>
         </header>
 
         {variant.statusLabel ? (
           <span className={`order-status-pill ${variant.pillClass}`}>{variant.statusLabel}</span>
         ) : null}
 
-        <div className="order-contact">
-          <div className="order-avatar" aria-hidden="true">
-            {getInitials(contactName)}
-          </div>
-          <div className="order-contact-details">
-            <p className="order-contact-name">{contactName}</p>
+        <div className="order-compact-grid">
+          <div className="order-compact-card">
+            <span className="order-compact-label">Customer</span>
+            <span className="order-compact-value">{contactName}</span>
             {formattedPhone ? (
-              <a href={phoneHref} className="order-contact-phone">
-                {formattedPhone}
+              <a href={phoneHref} className="order-compact-call">
+                Call customer
               </a>
             ) : null}
           </div>
-        </div>
-
-        <section className="order-section" aria-label="Delivery address">
-          <h2 className="order-section-title">Delivery Address</h2>
-          <address className="order-address">
-            {addressLines.map((line, index) => (
-              <span key={`${line}-${index}`}>{line}</span>
-            ))}
-          </address>
-          {googleMapsUrl || appleMapsUrl ? (
-            <div className="order-map-links">
-              {googleMapsUrl ? (
-                <a href={googleMapsUrl} target="_blank" rel="noreferrer">
-                  Google Maps
-                </a>
-              ) : null}
-              {appleMapsUrl ? (
-                <a href={appleMapsUrl} target="_blank" rel="noreferrer">
-                  Apple Maps
-                </a>
-              ) : null}
+          <div className="order-compact-card">
+            <span className="order-compact-label">Dropoff</span>
+            <span className="order-compact-value">{primaryAddressLine}</span>
+            {secondaryAddressHint ? (
+              <span className="order-compact-hint">{secondaryAddressHint}</span>
+            ) : null}
+          </div>
+          {orderTotalDisplay ? (
+            <div className="order-compact-card">
+              <span className="order-compact-label">Total</span>
+              <span className="order-compact-value">{orderTotalDisplay}</span>
             </div>
           ) : null}
-        </section>
+        </div>
 
-        <section className="order-section" aria-label="Order items">
-          <h2 className="order-section-title">Order Items</h2>
-          <ul className="order-items-list">
-            {items.length > 0 ? (
-              items.map((item) => (
-                <li key={item.id} className="order-item-row">
-                  <span className="order-item-name">{item.name}</span>
-                  <span className="order-item-quantity">{item.quantity}x</span>
-                </li>
-              ))
-            ) : (
-              <li className="order-item-row order-item-row-empty">No items listed.</li>
-            )}
-          </ul>
-        </section>
-
-        <footer className="order-ticket-footer">
-          <div className="order-total">
-            <span className="order-total-label">Order Total</span>
-            <span className="order-total-value">{orderTotalDisplay ?? '—'}</span>
+        {!isExpanded ? (
+          <div className="order-compact-actions">
+            {primaryButtonLabel ? (
+              <button
+                type="button"
+                className="order-action-button compact"
+                onClick={handlePrimaryAction}
+                disabled={actionLoading}
+              >
+                {primaryButtonLabel}
+                <span className="order-action-arrow" aria-hidden="true">
+                  →
+                </span>
+              </button>
+            ) : null}
           </div>
-          {primaryButtonLabel ? (
-            <button
-              type="button"
-              className="order-action-button"
-              onClick={handlePrimaryAction}
-              disabled={actionLoading}
-            >
-              {primaryButtonLabel}
-              <span className="order-action-arrow" aria-hidden="true">
-                →
-              </span>
-            </button>
-          ) : null}
-        </footer>
+        ) : (
+          <>
+            <div className="order-contact">
+              <div className="order-avatar" aria-hidden="true">
+                {getInitials(contactName)}
+              </div>
+              <div className="order-contact-details">
+                <p className="order-contact-name">{contactName}</p>
+                {formattedPhone ? (
+                  <a href={phoneHref} className="order-contact-phone">
+                    {formattedPhone}
+                  </a>
+                ) : null}
+              </div>
+            </div>
+
+            <section className="order-section" aria-label="Delivery address">
+              <h2 className="order-section-title">Delivery Address</h2>
+              <address className="order-address">
+                {addressLines.map((line, index) => (
+                  <span key={`${line}-${index}`}>{line}</span>
+                ))}
+              </address>
+              {googleMapsUrl || appleMapsUrl ? (
+                <div className="order-map-links">
+                  {googleMapsUrl ? (
+                    <a href={googleMapsUrl} target="_blank" rel="noreferrer">
+                      Google Maps
+                    </a>
+                  ) : null}
+                  {appleMapsUrl ? (
+                    <a href={appleMapsUrl} target="_blank" rel="noreferrer">
+                      Apple Maps
+                    </a>
+                  ) : null}
+                </div>
+              ) : null}
+            </section>
+
+            <section className="order-section" aria-label="Order items">
+              <h2 className="order-section-title">Order Items</h2>
+              <ul className="order-items-list">
+                {items.length > 0 ? (
+                  items.map((item) => (
+                    <li key={item.id} className="order-item-row">
+                      <span className="order-item-name">{item.name}</span>
+                      <span className="order-item-quantity">{item.quantity}x</span>
+                    </li>
+                  ))
+                ) : (
+                  <li className="order-item-row order-item-row-empty">No items listed.</li>
+                )}
+              </ul>
+            </section>
+
+            <footer className="order-ticket-footer">
+              <div className="order-total">
+                <span className="order-total-label">Order Total</span>
+                <span className="order-total-value">{orderTotalDisplay ?? '—'}</span>
+              </div>
+              {primaryButtonLabel ? (
+                <button
+                  type="button"
+                  className="order-action-button"
+                  onClick={handlePrimaryAction}
+                  disabled={actionLoading}
+                >
+                  {primaryButtonLabel}
+                  <span className="order-action-arrow" aria-hidden="true">
+                    →
+                  </span>
+                </button>
+              ) : null}
+            </footer>
+          </>
+        )}
       </section>
 
       {infoMessage ? (
@@ -842,7 +962,7 @@ export default function OrderDetails() {
         </div>
       ) : null}
 
-      {(mapUrl || showDeliveryDetails || variant.showFinalizeActions) ? (
+      {isExpanded && (mapUrl || showDeliveryDetails || variant.showFinalizeActions) ? (
         <div className="order-detail-sections">
           {mapUrl ? (
             <section className="order-info-card" aria-label="Delivery map">
