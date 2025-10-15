@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import LoaderOverlay from '../../components/LoaderOverlay'
 import { useAuth } from '../../context/AuthContext'
-import fallbackImage from '../../assets/placeholder-product.svg'
 import { fetchCardDetails, fetchOrderById, updateOrder, updateOrderStatus } from '../../services/orderService'
 import './Orders.css'
 
@@ -11,7 +10,7 @@ const STATUS_VARIANTS = {
     key: 'assigned',
     statusLabel: 'Assigned',
     pillClass: 'assigned',
-    primaryActionLabel: 'Tap to Accept',
+    primaryActionLabel: 'Accept Order',
     primaryActionStatus: 'Accepted',
     showMap: false,
     showCardDetails: false,
@@ -21,7 +20,7 @@ const STATUS_VARIANTS = {
     key: 'accepted',
     statusLabel: 'Accepted',
     pillClass: 'accepted',
-    primaryActionLabel: 'Tap to Start Delivery',
+    primaryActionLabel: 'Start Delivery',
     primaryActionStatus: 'In Progress',
     showMap: true,
     showCardDetails: false,
@@ -121,6 +120,361 @@ function formatAddress(address) {
   return parts.join(', ') || 'No address on file'
 }
 
+function buildAddressLines(address) {
+  if (!address) {
+    return ['No address provided']
+  }
+
+  if (typeof address === 'string') {
+    return [address]
+  }
+
+  const lines = []
+
+  const primaryStreet =
+    address.street1 || address.street || address.address1 || address.line1 || address.formattedAddress
+  if (primaryStreet) {
+    lines.push(primaryStreet)
+  }
+
+  const secondaryStreet = address.street2 || address.address2 || address.line2
+  if (secondaryStreet) {
+    lines.push(secondaryStreet)
+  }
+
+  if (address.apartment) {
+    lines.push(`Apt ${address.apartment}`)
+  }
+
+  if (address.description) {
+    lines.push(address.description)
+  }
+
+  if (address.fullAddress) {
+    lines.push(address.fullAddress)
+  }
+
+  const cityLine = [address.city, address.state, address.zip || address.postalCode]
+    .filter(Boolean)
+    .join(', ')
+
+  if (cityLine) {
+    lines.push(cityLine)
+  }
+
+  return lines.length > 0 ? Array.from(new Set(lines.filter(Boolean))) : ['No address provided']
+}
+
+function buildMapLinks(address) {
+  if (!address) {
+    return { google: null, apple: null }
+  }
+
+  let latitude = null
+  let longitude = null
+
+  if (Array.isArray(address.loc) && address.loc.length >= 2) {
+    const [lng, lat] = address.loc
+    if (typeof lat === 'number' && typeof lng === 'number') {
+      latitude = lat
+      longitude = lng
+    }
+  }
+
+  if (typeof address.latitude === 'number' && typeof address.longitude === 'number') {
+    latitude = address.latitude
+    longitude = address.longitude
+  }
+
+  if (typeof address.lat === 'number' && typeof address.lng === 'number') {
+    latitude = address.lat
+    longitude = address.lng
+  }
+
+  const query = buildAddressLines(address)
+    .filter((line) => line && line !== 'No address provided')
+    .join(', ')
+  const encodedQuery = query ? encodeURIComponent(query) : null
+
+  const googleBase = 'https://www.google.com/maps/search/?api=1'
+  const appleBase = 'https://maps.apple.com/'
+
+  const google =
+    latitude != null && longitude != null
+      ? `${googleBase}&query=${latitude},${longitude}`
+      : encodedQuery
+      ? `${googleBase}&query=${encodedQuery}`
+      : null
+
+  const apple =
+    latitude != null && longitude != null
+      ? `${appleBase}?ll=${latitude},${longitude}`
+      : encodedQuery
+      ? `${appleBase}?q=${encodedQuery}`
+      : null
+
+  return { google, apple }
+}
+
+function formatOrderNumber(order) {
+  if (!order) {
+    return '#—'
+  }
+
+  const candidate =
+    order.orderNumber ||
+    order.orderId ||
+    order.orderNo ||
+    order.order_id ||
+    order.number ||
+    order.reference ||
+    order.shortId ||
+    order.short_id
+
+  if (candidate) {
+    const sanitized = candidate.toString().replace(/^#/, '')
+    return `#${sanitized}`.toUpperCase()
+  }
+
+  if (order.id) {
+    const sanitized = order.id.toString().replace(/^#/, '')
+    return `#${sanitized}`.toUpperCase()
+  }
+
+  if (order._id) {
+    const suffix = order._id.toString().slice(-6)
+    return `#${suffix.toUpperCase()}`
+  }
+
+  return '#—'
+}
+
+function resolveOrderTimestamp(order) {
+  if (!order) {
+    return null
+  }
+
+  return (
+    order.createdAt ||
+    order.created_at ||
+    order.created ||
+    order.orderDate ||
+    order.order_date ||
+    order.placedAt ||
+    order.timestamp ||
+    order.updatedAt ||
+    null
+  )
+}
+
+function formatElapsedTime(value) {
+  if (!value) {
+    return null
+  }
+
+  const date = value instanceof Date ? value : new Date(value)
+
+  if (Number.isNaN(date.getTime())) {
+    return null
+  }
+
+  const diffMs = Date.now() - date.getTime()
+
+  if (diffMs < 0) {
+    return '00:00'
+  }
+
+  const totalSeconds = Math.floor(diffMs / 1000)
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+}
+
+function getInitials(name) {
+  if (!name) {
+    return '??'
+  }
+
+  const parts = name
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+
+  if (parts.length === 0) {
+    return '??'
+  }
+
+  const initials = parts
+    .slice(0, 2)
+    .map((part) => part[0].toUpperCase())
+    .join('')
+
+  return initials || parts[0].slice(0, 2).toUpperCase()
+}
+
+function formatPhoneNumber(phone) {
+  if (!phone) {
+    return null
+  }
+
+  const digits = phone.replace(/\D/g, '')
+
+  if (digits.length === 10) {
+    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`
+  }
+
+  if (digits.length === 11 && digits.startsWith('1')) {
+    return `+1 (${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`
+  }
+
+  return phone
+}
+
+function normalizePhoneHref(phone) {
+  if (!phone) {
+    return null
+  }
+
+  const digits = phone.replace(/\D/g, '')
+
+  if (!digits) {
+    return `tel:${phone}`
+  }
+
+  if (digits.length === 11 && digits.startsWith('1')) {
+    return `tel:+${digits}`
+  }
+
+  if (digits.length === 10) {
+    return `tel:+1${digits}`
+  }
+
+  return `tel:${digits}`
+}
+
+function resolveItems(order) {
+  if (!order) {
+    return []
+  }
+
+  if (Array.isArray(order.products) && order.products.length > 0) {
+    const quantities = Array.isArray(order.qty) ? order.qty : []
+
+    return order.products.map((product, index) => {
+      const quantityCandidate =
+        quantities[index] ?? product.quantity ?? product.qty ?? product.Qty ?? product.count ?? 1
+      const quantity = Number.isFinite(quantityCandidate) ? quantityCandidate : 1
+
+      const name =
+        product.Description ||
+        product.description ||
+        product.name ||
+        product.ProductName ||
+        product.title ||
+        'Item'
+
+      return {
+        id: product._id ?? product.id ?? product.productId ?? `${name}-${index}`,
+        name,
+        quantity,
+        price: product.PriceB || product.price || product.Price || product.unitPrice || null,
+      }
+    })
+  }
+
+  if (Array.isArray(order.items) && order.items.length > 0) {
+    return order.items.map((item, index) => ({
+      id: item.id ?? item.itemId ?? `${item.name ?? 'item'}-${index}`,
+      name: item.name || item.Description || item.description || item.title || 'Item',
+      quantity: item.quantity ?? item.qty ?? item.count ?? 1,
+      price: item.price ?? item.amount ?? item.total ?? null,
+    }))
+  }
+
+  return []
+}
+
+function resolveOrderTotal(order, items) {
+  if (!order) {
+    return null
+  }
+
+  const candidate =
+    order.total ||
+    order.totalAmount ||
+    order.orderTotal ||
+    order.amount ||
+    order.totalDue ||
+    (order.totals && (order.totals.grandTotal || order.totals.total)) ||
+    (order.payment && order.payment.total)
+
+  if (typeof candidate === 'number' && Number.isFinite(candidate)) {
+    return candidate
+  }
+
+  if (typeof candidate === 'string') {
+    const parsed = Number.parseFloat(candidate.replace(/[^0-9.-]/g, ''))
+    if (Number.isFinite(parsed)) {
+      return parsed
+    }
+  }
+
+  if (!Array.isArray(items) || items.length === 0) {
+    return null
+  }
+
+  const computed = items.reduce((sum, item) => {
+    const priceRaw = item.price
+    const price =
+      typeof priceRaw === 'number'
+        ? priceRaw
+        : typeof priceRaw === 'string'
+        ? Number.parseFloat(priceRaw.replace(/[^0-9.-]/g, ''))
+        : null
+
+    if (!Number.isFinite(price)) {
+      return sum
+    }
+
+    const quantity = Number.isFinite(item.quantity) ? item.quantity : 1
+    return sum + price * quantity
+  }, 0)
+
+  return Number.isFinite(computed) && computed > 0 ? computed : null
+}
+
+function formatCurrencyValue(value) {
+  if (value == null) {
+    return null
+  }
+
+  const number =
+    typeof value === 'number' ? value : Number.parseFloat(String(value).replace(/[^0-9.-]/g, ''))
+
+  if (!Number.isFinite(number)) {
+    return null
+  }
+
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(number)
+}
+
+function resolvePrimaryButtonLabel(variant) {
+  if (!variant?.primaryActionStatus) {
+    return null
+  }
+
+  if (variant.primaryActionStatus === 'Accepted') {
+    return 'Accept Order'
+  }
+
+  if (variant.primaryActionStatus === 'In Progress') {
+    return 'Start Delivery'
+  }
+
+  return variant.primaryActionLabel ?? null
+}
+
 export default function OrderDetails() {
   const { status: routeStatusKey, orderId } = useParams()
   const location = useLocation()
@@ -137,7 +491,6 @@ export default function OrderDetails() {
   const [cardLoading, setCardLoading] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
   const [infoMessage, setInfoMessage] = useState(null)
-  const [imageStatus, setImageStatus] = useState(() => initialOrder?.products?.map(() => true) ?? [])
 
   const resolvedStatusKey = useMemo(() => {
     const normalized = routeStatusKey?.toLowerCase()
@@ -150,6 +503,9 @@ export default function OrderDetails() {
 
   const variant = STATUS_VARIANTS[resolvedStatusKey] ?? STATUS_VARIANTS.assigned
   const requiresCardDetails = variant.showCardDetails
+
+  const timeReference = useMemo(() => resolveOrderTimestamp(order), [order])
+  const [timeSinceOrder, setTimeSinceOrder] = useState(() => formatElapsedTime(timeReference))
 
   useEffect(() => {
     let ignore = false
@@ -187,9 +543,20 @@ export default function OrderDetails() {
   }, [token, orderId, initialOrder])
 
   useEffect(() => {
-    const count = order?.products?.length ?? 0
-    setImageStatus(Array.from({ length: count }, () => true))
-  }, [order?.products])
+    setTimeSinceOrder(formatElapsedTime(timeReference))
+
+    if (!timeReference) {
+      return () => {}
+    }
+
+    const intervalId = setInterval(() => {
+      setTimeSinceOrder(formatElapsedTime(timeReference))
+    }, 1000)
+
+    return () => {
+      clearInterval(intervalId)
+    }
+  }, [timeReference])
 
   useEffect(() => {
     let ignore = false
@@ -236,18 +603,6 @@ export default function OrderDetails() {
       ignore = true
     }
   }, [order, token, requiresCardDetails, variant.showCardDetails])
-
-  const handleImageError = useCallback((index) => {
-    setImageStatus((prev) => {
-      if (!prev || prev.length === 0) {
-        return prev
-      }
-
-      const next = [...prev]
-      next[index] = false
-      return next
-    })
-  }, [])
 
   const handlePrimaryAction = useCallback(async () => {
     if (!order || !variant.primaryActionStatus || !token) {
@@ -347,20 +702,133 @@ export default function OrderDetails() {
     )
   }
 
-  const mapUrl = variant.showMap ? buildMapUrl(order.address) : null
+  const items = resolveItems(order)
+  const orderTotalAmount = resolveOrderTotal(order, items)
+  const orderTotalDisplay = formatCurrencyValue(orderTotalAmount)
   const overlayLabel = 'Updating order…'
+  const mapUrl = variant.showMap ? buildMapUrl(order.address) : null
+
+  const contactName = formatName(order.owner)
+  const rawPhone =
+    order.owner?.phone ||
+    order.owner?.phoneNumber ||
+    order.owner?.mobile ||
+    order.contactPhone ||
+    order.phoneNumber ||
+    order.phone ||
+    null
+  const formattedPhone = formatPhoneNumber(rawPhone)
+  const phoneHref = normalizePhoneHref(rawPhone)
+  const addressLines = buildAddressLines(order.address)
+  const { google: googleMapsUrl, apple: appleMapsUrl } = buildMapLinks(order.address)
+  const primaryButtonLabel = resolvePrimaryButtonLabel(variant)
+  const showDeliveryDetails = Boolean(
+    order.deliveryNote ||
+    order.owner?.email ||
+    order.owner?.dob ||
+    rawPhone ||
+    order.giftDelivery ||
+    (variant.showCardDetails && (cardDetails || cardLoading)) ||
+    cardError,
+  )
 
   return (
     <div className="order-detail-screen">
       <LoaderOverlay show={actionLoading} label={overlayLabel} />
 
-      <div className="order-detail-header">
-        <h1 className="order-detail-title">{formatName(order.owner)}</h1>
-        <div className="order-detail-meta">
-          <span className={`status-pill ${variant.pillClass}`}>{variant.statusLabel}</span>
-          <span>{formatAddress(order.address)}</span>
+      <section className="order-ticket" aria-labelledby="order-ticket-heading">
+        <header className="order-ticket-header">
+          <div>
+            <p className="order-ticket-label">Order</p>
+            <h1 className="order-ticket-number" id="order-ticket-heading">
+              {formatOrderNumber(order)}
+            </h1>
+          </div>
+          {timeSinceOrder ? (
+            <div className="order-ticket-timer">
+              <span className="order-ticket-timer-value">{timeSinceOrder}</span>
+              <span className="order-ticket-timer-label">Time since order</span>
+            </div>
+          ) : null}
+        </header>
+
+        {variant.statusLabel ? (
+          <span className={`order-status-pill ${variant.pillClass}`}>{variant.statusLabel}</span>
+        ) : null}
+
+        <div className="order-contact">
+          <div className="order-avatar" aria-hidden="true">
+            {getInitials(contactName)}
+          </div>
+          <div className="order-contact-details">
+            <p className="order-contact-name">{contactName}</p>
+            {formattedPhone ? (
+              <a href={phoneHref} className="order-contact-phone">
+                {formattedPhone}
+              </a>
+            ) : null}
+          </div>
         </div>
-      </div>
+
+        <section className="order-section" aria-label="Delivery address">
+          <h2 className="order-section-title">Delivery Address</h2>
+          <address className="order-address">
+            {addressLines.map((line, index) => (
+              <span key={`${line}-${index}`}>{line}</span>
+            ))}
+          </address>
+          {googleMapsUrl || appleMapsUrl ? (
+            <div className="order-map-links">
+              {googleMapsUrl ? (
+                <a href={googleMapsUrl} target="_blank" rel="noreferrer">
+                  Google Maps
+                </a>
+              ) : null}
+              {appleMapsUrl ? (
+                <a href={appleMapsUrl} target="_blank" rel="noreferrer">
+                  Apple Maps
+                </a>
+              ) : null}
+            </div>
+          ) : null}
+        </section>
+
+        <section className="order-section" aria-label="Order items">
+          <h2 className="order-section-title">Order Items</h2>
+          <ul className="order-items-list">
+            {items.length > 0 ? (
+              items.map((item) => (
+                <li key={item.id} className="order-item-row">
+                  <span className="order-item-name">{item.name}</span>
+                  <span className="order-item-quantity">{item.quantity}x</span>
+                </li>
+              ))
+            ) : (
+              <li className="order-item-row order-item-row-empty">No items listed.</li>
+            )}
+          </ul>
+        </section>
+
+        <footer className="order-ticket-footer">
+          <div className="order-total">
+            <span className="order-total-label">Order Total</span>
+            <span className="order-total-value">{orderTotalDisplay ?? '—'}</span>
+          </div>
+          {primaryButtonLabel ? (
+            <button
+              type="button"
+              className="order-action-button"
+              onClick={handlePrimaryAction}
+              disabled={actionLoading}
+            >
+              {primaryButtonLabel}
+              <span className="order-action-arrow" aria-hidden="true">
+                →
+              </span>
+            </button>
+          ) : null}
+        </footer>
+      </section>
 
       {infoMessage ? (
         <p className={`notice ${infoMessage.type}`} role="status">
@@ -374,172 +842,147 @@ export default function OrderDetails() {
         </div>
       ) : null}
 
-      {mapUrl ? (
-        <div className="map-preview">
-          <img src={mapUrl} alt="Delivery location map" loading="lazy" />
-        </div>
-      ) : null}
-
-      <section className="order-section-card">
-        <h2 className="section-heading">Order Summary</h2>
-        <div className="product-list">
-          {order.products?.map((product, index) => (
-            <div className="product-row" key={product._id ?? index}>
-              <div className="product-thumb">
-                <img
-                  src={imageStatus[index] && product.image ? product.image : fallbackImage}
-                  alt={product.Description || 'Product'}
-                  onError={() => handleImageError(index)}
-                />
+      {(mapUrl || showDeliveryDetails || variant.showFinalizeActions) ? (
+        <div className="order-detail-sections">
+          {mapUrl ? (
+            <section className="order-info-card" aria-label="Delivery map">
+              <h2 className="order-info-title">Delivery Map</h2>
+              <div className="order-map-preview">
+                <img src={mapUrl} alt="Delivery location map" loading="lazy" />
               </div>
-              <div className="product-info">
-                <span className="product-quantity">{order.qty?.[index] ?? 0}×</span>
-                <p className="product-name">
-                  {product.Description} {product.Size ? `- ${product.Size}` : ''}
+            </section>
+          ) : null}
+
+          {showDeliveryDetails ? (
+            <section className="order-info-card" aria-label="Delivery details">
+              <h2 className="order-info-title">Delivery Details</h2>
+              {order.deliveryNote ? (
+                <p className="order-info-text">
+                  <strong>Notes:</strong> {order.deliveryNote}
                 </p>
-                {product.PriceB ? (
-                  <p className="product-price">${product.PriceB} ea</p>
+              ) : null}
+              <div className="order-detail-grid">
+                <span>
+                  <strong>Customer:</strong> {contactName}
+                </span>
+                <span>
+                  <strong>Orders Count:</strong> {order.owner?.orderCount ?? 0}{' '}
+                  {order.owner?.orderCount === 1 ? (
+                    <span className="order-badge">New Customer</span>
+                  ) : null}
+                </span>
+                <span>
+                  <strong>Address:</strong> {formatAddress(order.address)}
+                </span>
+                {order.owner?.email ? (
+                  <span>
+                    <strong>Email:</strong> {order.owner.email}
+                  </span>
+                ) : null}
+                {order.owner?.dob ? (
+                  <span>
+                    <strong>DOB:</strong> {formatDate(order.owner.dob)}
+                  </span>
+                ) : null}
+                {rawPhone ? (
+                  <span>
+                    <strong>Phone:</strong>{' '}
+                    <a href={phoneHref} rel="noreferrer">
+                      {formattedPhone || rawPhone}
+                    </a>
+                  </span>
+                ) : null}
+                <span>
+                  <strong>Gift Delivery:</strong> {order.giftDelivery ? 'Yes' : 'No'}
+                </span>
+                {order.giftDelivery && order.giftDeliveryDetails ? (
+                  <>
+                    {order.giftDeliveryDetails.recipientName ? (
+                      <span>
+                        <strong>Recipient Name:</strong> {order.giftDeliveryDetails.recipientName}
+                      </span>
+                    ) : null}
+                    {order.giftDeliveryDetails.recipientPhone ? (
+                      <span>
+                        <strong>Recipient Phone:</strong>{' '}
+                        <a href={normalizePhoneHref(order.giftDeliveryDetails.recipientPhone)} rel="noreferrer">
+                          {formatPhoneNumber(order.giftDeliveryDetails.recipientPhone) ||
+                            order.giftDeliveryDetails.recipientPhone}
+                        </a>
+                      </span>
+                    ) : null}
+                    {order.giftDeliveryDetails.recipientBusinessName ? (
+                      <span>
+                        <strong>Recipient Business:</strong> {order.giftDeliveryDetails.recipientBusinessName}
+                      </span>
+                    ) : null}
+                    {order.giftDeliveryDetails.senderName ? (
+                      <span>
+                        <strong>Sender Name:</strong> {order.giftDeliveryDetails.senderName}
+                      </span>
+                    ) : null}
+                    {order.giftDeliveryDetails.senderPhone ? (
+                      <span>
+                        <strong>Sender Phone:</strong>{' '}
+                        <a href={normalizePhoneHref(order.giftDeliveryDetails.senderPhone)} rel="noreferrer">
+                          {formatPhoneNumber(order.giftDeliveryDetails.senderPhone) ||
+                            order.giftDeliveryDetails.senderPhone}
+                        </a>
+                      </span>
+                    ) : null}
+                    {order.giftDeliveryDetails.senderDOB ? (
+                      <span>
+                        <strong>Sender DOB:</strong> {formatDate(order.giftDeliveryDetails.senderDOB)}
+                      </span>
+                    ) : null}
+                  </>
                 ) : null}
               </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="order-section-card">
-        <h2 className="section-heading">Delivery Notes / Apartment #</h2>
-        <p className="detail-note">{order.deliveryNote || 'N/A'}</p>
-      </section>
-
-      <section className="order-section-card">
-        <h2 className="section-heading">Delivery Details</h2>
-        <div className="detail-grid">
-          <span>
-            <strong>Customer:</strong> {formatName(order.owner)}
-          </span>
-          <span>
-            <strong>Orders Count:</strong> {order.owner?.orderCount ?? 0}{' '}
-            {order.owner?.orderCount === 1 ? <span className="badge">New Customer</span> : null}
-          </span>
-          <span>
-            <strong>Address:</strong> {formatAddress(order.address)}
-          </span>
-          {order.owner?.email ? (
-            <span>
-              <strong>Email:</strong> {order.owner.email}
-            </span>
+              {cardError ? (
+                <p className="notice error" role="alert">
+                  {cardError}
+                </p>
+              ) : null}
+              {variant.showCardDetails && cardDetails ? (
+                <div className="order-detail-grid" style={{ marginTop: '0.75rem' }}>
+                  <span>
+                    <strong>Last 4:</strong> **** **** **** {cardDetails.last4 || '—'}{' '}
+                    {order.fromWallet ? (
+                      <span className="order-badge order-badge-wallet">{order.walletMethod}</span>
+                    ) : null}
+                  </span>
+                  <span>
+                    <strong>Expiration:</strong> {cardDetails.exp_month}/{cardDetails.exp_year}
+                  </span>
+                </div>
+              ) : null}
+              {cardLoading ? <p className="order-card-meta">Loading payment details…</p> : null}
+            </section>
           ) : null}
-          {order.owner?.dob ? (
-            <span>
-              <strong>DOB:</strong> {formatDate(order.owner.dob)}
-            </span>
-          ) : null}
-          {order.owner?.phone ? (
-            <span>
-              <strong>Phone:</strong>{' '}
-              <a href={`tel:${order.owner.phone}`} rel="noreferrer">
-                {order.owner.phone}
-              </a>
-            </span>
-          ) : null}
-          <span>
-            <strong>Gift Delivery:</strong> {order.giftDelivery ? 'Yes' : 'No'}
-          </span>
-          {order.giftDelivery && order.giftDeliveryDetails ? (
-            <>
-              {order.giftDeliveryDetails.recipientName ? (
-                <span>
-                  <strong>Recipient Name:</strong> {order.giftDeliveryDetails.recipientName}
-                </span>
-              ) : null}
-              {order.giftDeliveryDetails.recipientPhone ? (
-                <span>
-                  <strong>Recipient Phone:</strong>{' '}
-                  <a href={`tel:${order.giftDeliveryDetails.recipientPhone}`} rel="noreferrer">
-                    {order.giftDeliveryDetails.recipientPhone}
-                  </a>
-                </span>
-              ) : null}
-              {order.giftDeliveryDetails.recipientBusinessName ? (
-                <span>
-                  <strong>Recipient Business:</strong> {order.giftDeliveryDetails.recipientBusinessName}
-                </span>
-              ) : null}
-              {order.giftDeliveryDetails.senderName ? (
-                <span>
-                  <strong>Sender Name:</strong> {order.giftDeliveryDetails.senderName}
-                </span>
-              ) : null}
-              {order.giftDeliveryDetails.senderPhone ? (
-                <span>
-                  <strong>Sender Phone:</strong>{' '}
-                  <a href={`tel:${order.giftDeliveryDetails.senderPhone}`} rel="noreferrer">
-                    {order.giftDeliveryDetails.senderPhone}
-                  </a>
-                </span>
-              ) : null}
-              {order.giftDeliveryDetails.senderDOB ? (
-                <span>
-                  <strong>Sender DOB:</strong> {formatDate(order.giftDeliveryDetails.senderDOB)}
-                </span>
-              ) : null}
-            </>
-          ) : null}
-        </div>
-        {cardError ? (
-          <p className="notice error" role="alert">
-            {cardError}
-          </p>
-        ) : null}
-        {variant.showCardDetails && cardDetails ? (
-          <div className="detail-grid" style={{ marginTop: '0.75rem' }}>
-            <span>
-              <strong>Last 4:</strong> **** **** **** {cardDetails.last4 || '—'}{' '}
-              {order.fromWallet ? (
-                <span className="badge" style={{ background: '#2563eb' }}>
-                  {order.walletMethod}
-                </span>
-              ) : null}
-            </span>
-            <span>
-              <strong>Expiration:</strong> {cardDetails.exp_month}/{cardDetails.exp_year}
-            </span>
-          </div>
-        ) : null}
-        {cardLoading ? <p className="order-card-meta">Loading payment details…</p> : null}
-      </section>
 
-      {variant.showFinalizeActions ? (
-        <section className="order-section-card">
-          <h2 className="section-heading">Finalize</h2>
-          <div className="action-grid">
-            <button type="button" className="action-button" onClick={navigateToBypass}>
-              Bypass
-            </button>
-            <button type="button" className="action-button" onClick={navigateToCamera}>
-              Verify Info
-            </button>
-            <button type="button" className="action-button" onClick={navigateToCancel}>
-              No Answer
-            </button>
-            <button type="button" className="action-button destructive" onClick={handleCancelOrder}>
-              Cancel Order
-            </button>
-          </div>
-        </section>
-      ) : null}
-
-      {variant.primaryActionLabel ? (
-        <div className="order-footer">
-          <button
-            type="button"
-            className="order-primary-action"
-            onClick={handlePrimaryAction}
-            disabled={actionLoading}
-          >
-            {variant.primaryActionLabel}
-          </button>
-          <p className="order-secondary-text">{formatName(order.owner)}</p>
+          {variant.showFinalizeActions ? (
+            <section className="order-info-card" aria-label="Finalize order actions">
+              <h2 className="order-info-title">Finalize</h2>
+              <div className="order-action-grid">
+                <button type="button" className="order-secondary-button" onClick={navigateToBypass}>
+                  Bypass
+                </button>
+                <button type="button" className="order-secondary-button" onClick={navigateToCamera}>
+                  Verify Info
+                </button>
+                <button type="button" className="order-secondary-button" onClick={navigateToCancel}>
+                  No Answer
+                </button>
+                <button
+                  type="button"
+                  className="order-secondary-button destructive"
+                  onClick={handleCancelOrder}
+                >
+                  Cancel Order
+                </button>
+              </div>
+            </section>
+          ) : null}
         </div>
       ) : null}
     </div>
