@@ -509,6 +509,11 @@ export default function OrderDetails() {
   const [cardLoading, setCardLoading] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
   const [infoMessage, setInfoMessage] = useState(null)
+  const [verificationChecks, setVerificationChecks] = useState({
+    id: false,
+    payment: false,
+    signature: false,
+  })
 
   const resolvedStatusKey = useMemo(() => {
     const normalized = routeStatusKey?.toLowerCase()
@@ -718,6 +723,16 @@ export default function OrderDetails() {
     })
   }, [navigate, order, resolvedStatusKey])
 
+  const navigateToSignature = useCallback(() => {
+    if (!order) {
+      return
+    }
+
+    navigate(`/orders/${resolvedStatusKey}/${order._id}/signature`, {
+      state: { order },
+    })
+  }, [navigate, order, resolvedStatusKey])
+
   const navigateToCancel = useCallback(() => {
     if (!order) {
       return
@@ -727,6 +742,17 @@ export default function OrderDetails() {
       state: { order, reason: 'No answer at door' },
     })
   }, [navigate, order, resolvedStatusKey])
+
+  const toggleVerificationCheck = useCallback((key) => {
+    if (!key) {
+      return
+    }
+
+    setVerificationChecks((previous) => ({
+      ...previous,
+      [key]: !previous[key],
+    }))
+  }, [])
 
   const handleBackToProgress = useCallback(() => {
     navigate('/orders', { state: { focus: 'progress' } })
@@ -751,6 +777,7 @@ export default function OrderDetails() {
   }
 
   const items = resolveItems(order)
+  const totalItemCount = items.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0)
   const orderTotalAmount = resolveOrderTotal(order, items)
   const orderTotalDisplay = formatCurrencyValue(orderTotalAmount)
   const overlayLabel = 'Updating order…'
@@ -966,6 +993,11 @@ export default function OrderDetails() {
     })
   }
 
+  const progressMetaEntries = isProgressVariant
+    ? detailEntries.filter((entry) => !['customer', 'address', 'phone'].includes(entry.key))
+    : []
+  const signatureOnFile = Boolean(order.signature)
+
   return (
     <div className={['order-detail-screen', isProgressVariant ? 'progress-detail-layout' : '']
       .filter(Boolean)
@@ -974,7 +1006,7 @@ export default function OrderDetails() {
 
       <div className="order-detail-controls">
         <button type="button" className="order-back-button" onClick={handleBackToProgress}>
-          ← Back to In Progress
+          ← Go back to In Progress
         </button>
       </div>
 
@@ -1088,6 +1120,194 @@ export default function OrderDetails() {
                 ) : null}
               </button>
             ) : null}
+          </div>
+        ) : isProgressVariant ? (
+          <div className="progress-expanded-grid">
+            <section className="progress-summary-card" aria-label="Delivery overview">
+              <div className="progress-card-header">
+                <h2 className="progress-card-title">Delivery Overview</h2>
+              </div>
+
+              <div className="progress-summary-contact">
+                <div className="order-avatar progress-avatar" aria-hidden="true">
+                  {getInitials(contactName)}
+                </div>
+                <div className="progress-summary-contact-details">
+                  <p className="progress-summary-name">{contactName}</p>
+                  {formattedPhone ? (
+                    <a href={phoneHref} className="progress-summary-phone">
+                      {formattedPhone}
+                    </a>
+                  ) : null}
+                </div>
+              </div>
+
+              <div className="progress-summary-section">
+                <h3 className="progress-section-heading">Delivery Address</h3>
+                <address className="progress-address">
+                  {addressLines.map((line, index) => (
+                    <span key={`${line}-${index}`}>{line}</span>
+                  ))}
+                </address>
+                {googleMapsUrl || appleMapsUrl || wazeMapsUrl ? (
+                  <div className="progress-navigation-links">
+                    {googleMapsUrl ? (
+                      <a href={googleMapsUrl} target="_blank" rel="noreferrer">
+                        Google Maps
+                      </a>
+                    ) : null}
+                    {appleMapsUrl ? (
+                      <a href={appleMapsUrl} target="_blank" rel="noreferrer">
+                        Apple Maps
+                      </a>
+                    ) : null}
+                    {wazeMapsUrl ? (
+                      <a href={wazeMapsUrl} target="_blank" rel="noreferrer">
+                        Waze
+                      </a>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+
+              {order.deliveryNote ? (
+                <div className="progress-summary-section">
+                  <h3 className="progress-section-heading">Delivery Notes</h3>
+                  <p className="progress-note">{order.deliveryNote}</p>
+                </div>
+              ) : null}
+
+              <div className="progress-summary-section">
+                <h3 className="progress-section-heading">Order Items</h3>
+                <ul className="progress-items-list">
+                  {items.length > 0 ? (
+                    items.map((item) => (
+                      <li key={item.id} className="progress-item-row">
+                        <span className="progress-item-name">{item.name}</span>
+                        <span className="progress-item-quantity">{item.quantity}x</span>
+                      </li>
+                    ))
+                  ) : (
+                    <li className="progress-item-row empty">No items listed.</li>
+                  )}
+                </ul>
+              </div>
+
+              <div className="progress-summary-footer">
+                <div>
+                  <span className="progress-summary-label">Order Total</span>
+                  <span className="progress-summary-value">{orderTotalDisplay ?? '—'}</span>
+                </div>
+                <div>
+                  <span className="progress-summary-label">Items</span>
+                  <span className="progress-summary-value">
+                    {totalItemCount} {totalItemCount === 1 ? 'item' : 'items'}
+                  </span>
+                </div>
+              </div>
+            </section>
+
+            <section className="progress-finalize-card" aria-label="Finalize delivery">
+              <h2 className="progress-card-title">Finalize Delivery</h2>
+              <p className="progress-card-subtitle">
+                Complete these checks before handing off the order.
+              </p>
+              <ul className="progress-checklist">
+                <li>
+                  <label className="progress-checklist-item">
+                    <input
+                      type="checkbox"
+                      checked={verificationChecks.id}
+                      onChange={() => toggleVerificationCheck('id')}
+                    />
+                    <span>
+                      Match the customer's photo ID to the order name
+                      {order.owner?.dob ? ` and confirm DOB ${formatDate(order.owner.dob)}` : ''}.
+                    </span>
+                  </label>
+                </li>
+                <li>
+                  <label className="progress-checklist-item">
+                    <input
+                      type="checkbox"
+                      checked={verificationChecks.payment}
+                      onChange={() => toggleVerificationCheck('payment')}
+                    />
+                    <span>
+                      Verify payment method{cardDetails?.last4 ? ` ending in ${cardDetails.last4}` : ''} and
+                      confirm the card is present.
+                    </span>
+                  </label>
+                </li>
+                <li>
+                  <label className="progress-checklist-item">
+                    <input
+                      type="checkbox"
+                      checked={verificationChecks.signature}
+                      onChange={() => toggleVerificationCheck('signature')}
+                    />
+                    <span>
+                      Collect customer signature{signatureOnFile ? ' (signature already on file)' : ''} and
+                      delivery confirmation.
+                    </span>
+                  </label>
+                </li>
+              </ul>
+
+              {progressMetaEntries.length > 0 ? (
+                <div className="progress-meta-list">
+                  <h3 className="progress-section-heading">Additional Details</h3>
+                  <ul>
+                    {progressMetaEntries.map((entry) => (
+                      <li key={entry.key}>{entry.content}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+
+              {cardError ? (
+                <p className="notice error" role="alert">
+                  {cardError}
+                </p>
+              ) : null}
+
+              {cardLoading ? <p className="progress-card-meta">Loading payment details…</p> : null}
+
+              <div className="progress-finalize-actions">
+                {primaryButtonLabel ? (
+                  <button
+                    type="button"
+                    className="progress-complete-button"
+                    onClick={handlePrimaryAction}
+                    disabled={actionLoading}
+                  >
+                    {actionLoading ? 'Finishing…' : primaryButtonLabel}
+                  </button>
+                ) : null}
+
+                <div className="progress-secondary-actions">
+                  <button type="button" className="order-secondary-button" onClick={navigateToCamera}>
+                    Capture Photo ID
+                  </button>
+                  <button type="button" className="order-secondary-button" onClick={navigateToSignature}>
+                    Collect Signature
+                  </button>
+                  <button type="button" className="order-secondary-button" onClick={navigateToBypass}>
+                    Bypass Requirements
+                  </button>
+                  <button type="button" className="order-secondary-button" onClick={navigateToCancel}>
+                    No Answer
+                  </button>
+                  <button
+                    type="button"
+                    className="order-secondary-button destructive"
+                    onClick={handleCancelOrder}
+                  >
+                    Cancel Order
+                  </button>
+                </div>
+              </div>
+            </section>
           </div>
         ) : (
           <>
@@ -1203,7 +1423,7 @@ export default function OrderDetails() {
         </div>
       ) : null}
 
-      {isExpanded && (mapUrl || showDeliveryDetails || variant.showFinalizeActions) ? (
+      {!isProgressVariant && isExpanded && (mapUrl || showDeliveryDetails || variant.showFinalizeActions) ? (
         <div className="order-detail-sections">
           {mapUrl ? (
             <section className="order-info-card" aria-label="Delivery map">
