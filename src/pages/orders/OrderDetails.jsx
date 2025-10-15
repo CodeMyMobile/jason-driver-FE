@@ -1130,33 +1130,35 @@ export default function OrderDetails() {
         </button>
       </div>
 
-      <header className="order-detail-header" aria-label="Driver portal header">
-        <div className="order-detail-brand">
-          <div className="order-detail-brand-text">
-            <span className="order-detail-brand-title">Jason's Delivery</span>
-            <span className="order-detail-brand-subtitle">Driver Portal</span>
+      {!isProgressVariant ? (
+        <header className="order-detail-header" aria-label="Driver portal header">
+          <div className="order-detail-brand">
+            <div className="order-detail-brand-text">
+              <span className="order-detail-brand-title">Jason's Delivery</span>
+              <span className="order-detail-brand-subtitle">Driver Portal</span>
+            </div>
+            <div className="order-detail-badge" aria-label="Program: 7oct test">
+              <span className="order-detail-badge-label">7oct test</span>
+              <span className="order-detail-badge-icon" aria-hidden="true">🛰️</span>
+            </div>
           </div>
-          <div className="order-detail-badge" aria-label="Program: 7oct test">
-            <span className="order-detail-badge-label">7oct test</span>
-            <span className="order-detail-badge-icon" aria-hidden="true">🛰️</span>
-          </div>
-        </div>
-        <nav className="order-detail-tabs" aria-label="Order status tabs">
-          {STATUS_TABS.map((tab) => (
-            <button
-              key={tab.key}
-              type="button"
-              className={['order-detail-tab', tab.key === resolvedStatusKey ? 'active' : '']
-                .filter(Boolean)
-                .join(' ')}
-              aria-pressed={tab.key === resolvedStatusKey}
-              onClick={() => handleTabSelect(tab.key)}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </nav>
-      </header>
+          <nav className="order-detail-tabs" aria-label="Order status tabs">
+            {STATUS_TABS.map((tab) => (
+              <button
+                key={tab.key}
+                type="button"
+                className={['order-detail-tab', tab.key === resolvedStatusKey ? 'active' : '']
+                  .filter(Boolean)
+                  .join(' ')}
+                aria-pressed={tab.key === resolvedStatusKey}
+                onClick={() => handleTabSelect(tab.key)}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </nav>
+        </header>
+      ) : null}
 
       <section
         className={`order-ticket ${isExpanded ? 'expanded' : 'collapsed'} ${
@@ -1178,7 +1180,7 @@ export default function OrderDetails() {
                 <span className="order-ticket-timer-label">Time since order</span>
               </div>
             ) : null}
-            {!isAcceptedVariant ? (
+            {!isAcceptedVariant && !isProgressVariant ? (
               <button
                 type="button"
                 className="order-collapse-toggle"
