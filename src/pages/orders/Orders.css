@@ -323,6 +323,10 @@
   gap: 1.5rem;
 }
 
+.orders-list--accepted {
+  gap: 1.75rem;
+}
+
 .orders-empty {
   border-radius: 1.5rem;
   padding: 2.25rem 1.75rem;
