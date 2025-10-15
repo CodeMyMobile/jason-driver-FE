@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { fetchOrders } from '../../services/orderService'
 import './Orders.css'
@@ -79,11 +79,14 @@ function resolveStatusKey(status) {
 
 export default function OrdersFeed() {
   const { token } = useAuth()
+  const location = useLocation()
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [lastUpdated, setLastUpdated] = useState(null)
   const [view, setView] = useState(SECTION_CONFIG[0].key)
+
+  const focusKey = location.state?.focus
 
   const isRefreshing = loading && orders.length > 0
 
@@ -110,6 +113,19 @@ export default function OrdersFeed() {
   useEffect(() => {
     loadOrders()
   }, [loadOrders])
+
+  useEffect(() => {
+    if (!focusKey) {
+      return
+    }
+
+    const isValid = SECTION_CONFIG.some((section) => section.key === focusKey)
+    if (!isValid) {
+      return
+    }
+
+    setView((current) => (current === focusKey ? current : focusKey))
+  }, [focusKey])
 
   const viewConfig = useMemo(
     () => SECTION_CONFIG.find((entry) => entry.key === view) ?? SECTION_CONFIG[0],

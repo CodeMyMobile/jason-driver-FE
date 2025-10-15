@@ -1,6 +1,6 @@
-import { Link, Navigate, NavLink, Outlet, Route, Routes } from 'react-router-dom'
-import ProtectedRoute from './components/ProtectedRoute.jsx'
+import { Navigate, NavLink, Outlet, Route, Routes } from 'react-router-dom'
 import { useAuth } from './context/AuthContext.jsx'
+import ProtectedRoute from './components/ProtectedRoute.jsx'
 import LoginPage from './pages/Login.jsx'
 import SettingsPage from './pages/Settings.jsx'
 import OrdersFeed from './pages/orders/OrdersFeed.jsx'
@@ -9,11 +9,10 @@ import OrderCamera from './pages/orders/OrderCamera.jsx'
 import OrderSignature from './pages/orders/OrderSignature.jsx'
 import OrderBypass from './pages/orders/OrderBypass.jsx'
 import OrderCancel from './pages/orders/OrderCancel.jsx'
+import PreviewOrderExperience from './pages/orders/PreviewOrderExperience.jsx'
 import './App.css'
 
 function AppLayout() {
-  const { user } = useAuth()
-
   const navItems = [
     { to: '/orders', label: 'Orders', icon: 'orders' },
     { to: '/settings', label: 'Profile', icon: 'profile' },
@@ -22,22 +21,6 @@ function AppLayout() {
   return (
     <div className="app-surface">
       <div className="app-panel">
-        <header className="app-header">
-          <Link to="/orders" className="brand" aria-label="Jason's Delivery home">
-            <span className="brand-icon" aria-hidden="true" />
-            <span className="brand-text">
-              <span className="brand-title">Jason&apos;s Delivery</span>
-              <span className="brand-subtitle">Drivers &amp; Partners</span>
-            </span>
-          </Link>
-          {user ? (
-            <div className="header-user">
-              <span className="header-user-name">{user?.name?.first} {user?.name?.last}</span>
-              <span className="header-user-email">{user?.email}</span>
-            </div>
-          ) : null}
-        </header>
-
         <div className="app-body">
           <Outlet />
         </div>
@@ -65,6 +48,33 @@ function AppLayout() {
 }
 
 export default function App() {
+  const { token, initialising } = useAuth()
+
+  if (initialising) {
+    return (
+      <div className="app-surface">
+        <div className="app-panel">
+          <div className="app-body">
+            <div className="screen" style={{ alignItems: 'center', justifyContent: 'center' }}>
+              <div className="spinner" aria-label="Loading" />
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (!token) {
+    return (
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/preview" element={<Navigate to="/preview/assigned/preview-order" replace />} />
+        <Route path="/preview/:status/:orderId" element={<PreviewOrderExperience />} />
+        <Route path="*" element={<Navigate to="/preview/assigned/preview-order" replace />} />
+      </Routes>
+    )
+  }
+
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
