@@ -20,7 +20,7 @@ const STATUS_VARIANTS = {
     key: 'accepted',
     statusLabel: 'Accepted',
     pillClass: 'accepted',
-    primaryActionLabel: 'Start Delivery',
+    primaryActionLabel: 'In progress',
     primaryActionStatus: 'In Progress',
     showMap: true,
     showCardDetails: false,
@@ -204,6 +204,7 @@ function buildMapLinks(address) {
 
   const googleBase = 'https://www.google.com/maps/search/?api=1'
   const appleBase = 'https://maps.apple.com/'
+  const wazeBase = 'https://www.waze.com/ul'
 
   const google =
     latitude != null && longitude != null
@@ -219,7 +220,14 @@ function buildMapLinks(address) {
       ? `${appleBase}?q=${encodedQuery}`
       : null
 
-  return { google, apple }
+  const waze =
+    latitude != null && longitude != null
+      ? `${wazeBase}?ll=${latitude},${longitude}&navigate=yes`
+      : encodedQuery
+      ? `${wazeBase}?q=${encodedQuery}&navigate=yes`
+      : null
+
+  return { google, apple, waze }
 }
 
 function formatOrderNumber(order) {
@@ -475,7 +483,7 @@ function resolvePrimaryButtonLabel(variant) {
   }
 
   if (variant.primaryActionStatus === 'In Progress') {
-    return 'Start Delivery'
+    return 'In progress'
   }
 
   return variant.primaryActionLabel ?? null
@@ -508,6 +516,7 @@ export default function OrderDetails() {
   }, [routeStatusKey, order?.status])
 
   const variant = STATUS_VARIANTS[resolvedStatusKey] ?? STATUS_VARIANTS.assigned
+  const isAcceptedVariant = variant.key === 'accepted'
   const requiresCardDetails = variant.showCardDetails
 
   const timeReference = useMemo(() => resolveOrderTimestamp(order), [order])
@@ -750,7 +759,11 @@ export default function OrderDetails() {
   const formattedPhone = formatPhoneNumber(rawPhone)
   const phoneHref = normalizePhoneHref(rawPhone)
   const addressLines = buildAddressLines(order.address)
-  const { google: googleMapsUrl, apple: appleMapsUrl } = buildMapLinks(order.address)
+  const {
+    google: googleMapsUrl,
+    apple: appleMapsUrl,
+    waze: wazeMapsUrl,
+  } = buildMapLinks(order.address)
   const primaryButtonLabel = resolvePrimaryButtonLabel(variant)
   const showDeliveryDetails = Boolean(
     order.deliveryNote ||
@@ -798,7 +811,9 @@ export default function OrderDetails() {
       </header>
 
       <section
-        className={`order-ticket ${isExpanded ? 'expanded' : 'collapsed'}`}
+        className={`order-ticket ${isExpanded ? 'expanded' : 'collapsed'} ${
+          isAcceptedVariant ? 'accepted-view' : ''
+        }`}
         aria-labelledby="order-ticket-heading"
       >
         <header className="order-ticket-header">
@@ -815,15 +830,17 @@ export default function OrderDetails() {
                 <span className="order-ticket-timer-label">Time since order</span>
               </div>
             ) : null}
-            <button
-              type="button"
-              className="order-collapse-toggle"
-              onClick={toggleExpanded}
-              aria-expanded={isExpanded}
-            >
-              {isExpanded ? 'Hide details' : 'View details'}
-              <span aria-hidden="true">{isExpanded ? '▴' : '▾'}</span>
-            </button>
+            {!isAcceptedVariant ? (
+              <button
+                type="button"
+                className="order-collapse-toggle"
+                onClick={toggleExpanded}
+                aria-expanded={isExpanded}
+              >
+                {isExpanded ? 'Hide details' : 'View details'}
+                <span aria-hidden="true">{isExpanded ? '▴' : '▾'}</span>
+              </button>
+            ) : null}
           </div>
         </header>
 
@@ -831,50 +848,54 @@ export default function OrderDetails() {
           <span className={`order-status-pill ${variant.pillClass}`}>{variant.statusLabel}</span>
         ) : null}
 
-        <div className="order-compact-grid">
-          <div className="order-compact-card">
-            <span className="order-compact-label">Customer</span>
-            <span className="order-compact-value">{contactName}</span>
-            {formattedPhone ? (
-              <a href={phoneHref} className="order-compact-call">
-                Call customer
-              </a>
-            ) : null}
-          </div>
-          <div className="order-compact-card">
-            <span className="order-compact-label">Dropoff</span>
-            <span className="order-compact-value">{primaryAddressLine}</span>
-            {secondaryAddressHint ? (
-              <span className="order-compact-hint">{secondaryAddressHint}</span>
-            ) : null}
-          </div>
-          {orderTotalDisplay ? (
+        {!isAcceptedVariant ? (
+          <div className="order-compact-grid">
             <div className="order-compact-card">
-              <span className="order-compact-label">Total</span>
-              <span className="order-compact-value">{orderTotalDisplay}</span>
+              <span className="order-compact-label">Customer</span>
+              <span className="order-compact-value">{contactName}</span>
+              {formattedPhone ? (
+                <a href={phoneHref} className="order-compact-call">
+                  Call customer
+                </a>
+              ) : null}
             </div>
-          ) : null}
-        </div>
+            <div className="order-compact-card">
+              <span className="order-compact-label">Dropoff</span>
+              <span className="order-compact-value">{primaryAddressLine}</span>
+              {secondaryAddressHint ? (
+                <span className="order-compact-hint">{secondaryAddressHint}</span>
+              ) : null}
+            </div>
+            {orderTotalDisplay ? (
+              <div className="order-compact-card">
+                <span className="order-compact-label">Total</span>
+                <span className="order-compact-value">{orderTotalDisplay}</span>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
 
         {!isExpanded ? (
           <div className="order-compact-actions">
             {primaryButtonLabel ? (
               <button
                 type="button"
-                className="order-action-button compact"
+                className={`order-action-button compact ${
+                  isAcceptedVariant ? 'accepted-primary' : ''
+                }`}
                 onClick={handlePrimaryAction}
                 disabled={actionLoading}
               >
                 {primaryButtonLabel}
-                <span className="order-action-arrow" aria-hidden="true">
-                  →
-                </span>
+                {!isAcceptedVariant ? (
+                  <span className="order-action-arrow" aria-hidden="true">→</span>
+                ) : null}
               </button>
             ) : null}
           </div>
         ) : (
           <>
-            <div className="order-contact">
+            <div className={`order-contact ${isAcceptedVariant ? 'accepted' : ''}`}>
               <div className="order-avatar" aria-hidden="true">
                 {getInitials(contactName)}
               </div>
@@ -888,14 +909,17 @@ export default function OrderDetails() {
               </div>
             </div>
 
-            <section className="order-section" aria-label="Delivery address">
+            <section
+              className={`order-section ${isAcceptedVariant ? 'accepted' : ''}`}
+              aria-label="Delivery address"
+            >
               <h2 className="order-section-title">Delivery Address</h2>
               <address className="order-address">
                 {addressLines.map((line, index) => (
                   <span key={`${line}-${index}`}>{line}</span>
                 ))}
               </address>
-              {googleMapsUrl || appleMapsUrl ? (
+              {googleMapsUrl || appleMapsUrl || wazeMapsUrl ? (
                 <div className="order-map-links">
                   {googleMapsUrl ? (
                     <a href={googleMapsUrl} target="_blank" rel="noreferrer">
@@ -907,16 +931,27 @@ export default function OrderDetails() {
                       Apple Maps
                     </a>
                   ) : null}
+                  {wazeMapsUrl ? (
+                    <a href={wazeMapsUrl} target="_blank" rel="noreferrer">
+                      Waze
+                    </a>
+                  ) : null}
                 </div>
               ) : null}
             </section>
 
-            <section className="order-section" aria-label="Order items">
+            <section
+              className={`order-section ${isAcceptedVariant ? 'accepted' : ''}`}
+              aria-label="Order items"
+            >
               <h2 className="order-section-title">Order Items</h2>
               <ul className="order-items-list">
                 {items.length > 0 ? (
                   items.map((item) => (
-                    <li key={item.id} className="order-item-row">
+                    <li
+                      key={item.id}
+                      className={`order-item-row ${isAcceptedVariant ? 'accepted' : ''}`}
+                    >
                       <span className="order-item-name">{item.name}</span>
                       <span className="order-item-quantity">{item.quantity}x</span>
                     </li>
@@ -927,22 +962,26 @@ export default function OrderDetails() {
               </ul>
             </section>
 
-            <footer className="order-ticket-footer">
-              <div className="order-total">
+            <footer
+              className={`order-ticket-footer ${isAcceptedVariant ? 'accepted' : ''}`}
+            >
+              <div className={`order-total ${isAcceptedVariant ? 'accepted' : ''}`}>
                 <span className="order-total-label">Order Total</span>
                 <span className="order-total-value">{orderTotalDisplay ?? '—'}</span>
               </div>
               {primaryButtonLabel ? (
                 <button
                   type="button"
-                  className="order-action-button"
+                  className={`order-action-button ${
+                    isAcceptedVariant ? 'accepted-primary' : ''
+                  }`}
                   onClick={handlePrimaryAction}
                   disabled={actionLoading}
                 >
                   {primaryButtonLabel}
-                  <span className="order-action-arrow" aria-hidden="true">
-                    →
-                  </span>
+                  {!isAcceptedVariant ? (
+                    <span className="order-action-arrow" aria-hidden="true">→</span>
+                  ) : null}
                 </button>
               ) : null}
             </footer>
