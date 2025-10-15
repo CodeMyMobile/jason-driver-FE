@@ -415,6 +415,27 @@
   justify-content: space-between;
 }
 
+.accepted-order-card {
+  gap: 1rem;
+}
+
+.accepted-order-header {
+  align-items: flex-start;
+}
+
+.accepted-order-header-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.45rem;
+}
+
+.accepted-order-header-meta .order-status-pill {
+  align-self: flex-end;
+  padding: 0.25rem 0.65rem;
+  font-size: 0.7rem;
+}
+
 .assigned-order-heading {
   display: flex;
   flex-direction: column;
@@ -534,6 +555,11 @@
   display: flex;
   gap: 0.5rem;
   margin-top: 0.2rem;
+}
+
+.accepted-order-address-actions {
+  flex-wrap: wrap;
+  row-gap: 0.35rem;
 }
 
 .assigned-order-map-link {

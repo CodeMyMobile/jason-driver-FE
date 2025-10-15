@@ -890,6 +890,17 @@ export default function OrdersFeed() {
                 const phoneHref = normalizePhoneHref(contactPhone)
                 const addressLines = buildAddressLines(order.address)
                 const navigationLinks = buildNavigationLinks(order.address)
+                const navigationOptions = [
+                  navigationLinks.google
+                    ? { key: 'google', label: 'Google Maps', href: navigationLinks.google }
+                    : null,
+                  navigationLinks.apple
+                    ? { key: 'apple', label: 'Apple Maps', href: navigationLinks.apple }
+                    : null,
+                  navigationLinks.waze
+                    ? { key: 'waze', label: 'Waze', href: navigationLinks.waze }
+                    : null,
+                ].filter(Boolean)
                 const items = resolveItems(order)
                 const orderTotalAmount = resolveOrderTotal(order, items)
                 const orderTotalDisplay = formatCurrencyValue(orderTotalAmount)
@@ -900,112 +911,96 @@ export default function OrdersFeed() {
                 return (
                   <article
                     key={order._id}
-                    className="order-ticket accepted-view"
+                    className="assigned-order-card accepted-order-card"
                     role="listitem"
                     aria-label={`Order ${orderNumber}`}
                   >
-                    <header className="order-ticket-header">
-                      <div>
-                        <p className="order-ticket-label">Order</p>
-                        <h2 className="order-ticket-number">#{orderNumber}</h2>
+                    <header className="assigned-order-header accepted-order-header">
+                      <div className="assigned-order-heading">
+                        <span className="assigned-order-label">Order</span>
+                        <span className="assigned-order-number">#{orderNumber}</span>
                       </div>
-                      <div className="order-ticket-controls">
+                      <div className="accepted-order-header-meta">
                         {timeSinceOrder ? (
-                          <div className="order-ticket-timer" aria-label="Time since order">
-                            <span className="order-ticket-timer-value">{timeSinceOrder}</span>
-                            <span className="order-ticket-timer-label">Time since order</span>
+                          <div className="assigned-order-timer accepted-order-timer" aria-label="Time since order">
+                            <span className="assigned-order-timer-label">Time since order</span>
+                            <span className="assigned-order-timer-value">{timeSinceOrder}</span>
                           </div>
                         ) : null}
+                        <span className="order-status-pill accepted">Accepted</span>
                       </div>
                     </header>
 
-                    <span className="order-status-pill accepted">Accepted</span>
-
-                    <section className="order-contact accepted" aria-label="Customer details">
-                      <span className="order-avatar" aria-hidden="true">
-                        {initials}
-                      </span>
-                      <div className="order-contact-details">
-                        <p className="order-contact-name">{contactName}</p>
-                        {phoneDisplay ? (
-                          <a
-                            href={phoneHref ?? undefined}
-                            className="order-contact-phone"
-                            onClick={(event) => event.stopPropagation?.()}
-                          >
-                            {phoneDisplay}
-                          </a>
-                        ) : null}
+                    <section className="assigned-order-section" aria-label="Customer details">
+                      <div className="assigned-order-customer">
+                        <span className="assigned-order-avatar" aria-hidden="true">
+                          {initials}
+                        </span>
+                        <div className="assigned-order-contact">
+                          <p className="assigned-order-name">{contactName}</p>
+                          {phoneDisplay ? (
+                            <a
+                              href={phoneHref ?? undefined}
+                              className="assigned-order-phone"
+                              onClick={(event) => event.stopPropagation?.()}
+                            >
+                              {phoneDisplay}
+                            </a>
+                          ) : null}
+                        </div>
                       </div>
                     </section>
 
-                    <section className="order-section accepted" aria-label="Delivery address">
-                      <h3 className="order-section-title">Delivery Address</h3>
-                      <address className="order-address">
+                    <section className="assigned-order-section" aria-label="Delivery address">
+                      <p className="assigned-order-section-title">Delivery Address</p>
+                      <address className="assigned-order-address">
                         {addressLines.map((line) => (
                           <span key={line}>{line}</span>
                         ))}
                       </address>
-                      {navigationLinks.google || navigationLinks.apple || navigationLinks.waze ? (
-                        <div className="order-map-links">
-                          {navigationLinks.google ? (
+                      {navigationOptions.length > 0 ? (
+                        <div className="assigned-order-address-actions accepted-order-address-actions">
+                          {navigationOptions.map((option) => (
                             <a
-                              href={navigationLinks.google}
+                              key={option.key}
+                              href={option.href}
                               target="_blank"
                               rel="noopener noreferrer"
+                              className="assigned-order-map-link"
                               onClick={(event) => event.stopPropagation?.()}
                             >
-                              Google Maps
+                              <span aria-hidden="true" className="assigned-order-map-icon" />
+                              <span>{option.label}</span>
                             </a>
-                          ) : null}
-                          {navigationLinks.apple ? (
-                            <a
-                              href={navigationLinks.apple}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              onClick={(event) => event.stopPropagation?.()}
-                            >
-                              Apple Maps
-                            </a>
-                          ) : null}
-                          {navigationLinks.waze ? (
-                            <a
-                              href={navigationLinks.waze}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              onClick={(event) => event.stopPropagation?.()}
-                            >
-                              Waze
-                            </a>
-                          ) : null}
+                          ))}
                         </div>
                       ) : null}
                     </section>
 
-                    <section className="order-section accepted" aria-label="Order items">
-                      <h3 className="order-section-title">Order Items</h3>
-                      <ul className="order-items-list">
+                    <section className="assigned-order-section" aria-label="Order items">
+                      <p className="assigned-order-section-title">Order Items</p>
+                      <ul className="assigned-order-items">
                         {items.length > 0 ? (
                           items.map((item) => (
-                            <li key={item.id} className="order-item-row accepted">
-                              <span className="order-item-name">{item.name}</span>
-                              <span className="order-item-quantity">{item.quantity}x</span>
+                            <li key={item.id} className="assigned-order-item">
+                              <span className="assigned-order-item-name">{item.name}</span>
+                              <span className="assigned-order-item-quantity">{item.quantity}x</span>
                             </li>
                           ))
                         ) : (
-                          <li className="order-item-row order-item-row-empty">No items listed.</li>
+                          <li className="assigned-order-item empty">No items listed.</li>
                         )}
                       </ul>
                     </section>
 
-                    <footer className="order-ticket-footer accepted">
-                      <div className="order-total accepted">
-                        <span className="order-total-label">Order Total</span>
-                        <span className="order-total-value">{orderTotalDisplay ?? '—'}</span>
+                    <footer className="assigned-order-footer">
+                      <div className="assigned-order-total">
+                        <span className="assigned-order-total-label">Order Total</span>
+                        <span className="assigned-order-total-value">{orderTotalDisplay ?? '—'}</span>
                       </div>
                       <button
                         type="button"
-                        className="order-action-button accepted-primary"
+                        className="assigned-order-accept"
                         onClick={() => handleStartOrder(order)}
                         disabled={isProcessing}
                       >
