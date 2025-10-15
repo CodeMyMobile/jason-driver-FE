@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import LoaderOverlay from '../../components/LoaderOverlay'
 import { useAuth } from '../../context/AuthContext'
@@ -30,8 +30,8 @@ const STATUS_VARIANTS = {
     key: 'progress',
     statusLabel: 'In Progress',
     pillClass: 'progress',
-    primaryActionLabel: null,
-    primaryActionStatus: null,
+    primaryActionLabel: 'Complete',
+    primaryActionStatus: 'Completed',
     showMap: true,
     showCardDetails: true,
     showFinalizeActions: true,
@@ -486,6 +486,10 @@ function resolvePrimaryButtonLabel(variant) {
     return 'In progress'
   }
 
+  if (variant.primaryActionStatus === 'Completed') {
+    return 'Complete'
+  }
+
   return variant.primaryActionLabel ?? null
 }
 
@@ -505,6 +509,14 @@ export default function OrderDetails() {
   const [cardLoading, setCardLoading] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
   const [infoMessage, setInfoMessage] = useState(null)
+  const [verificationChecks, setVerificationChecks] = useState({
+    id: false,
+    payment: false,
+    signature: false,
+  })
+  const signatureCanvasRef = useRef(null)
+  const [isDrawingSignature, setIsDrawingSignature] = useState(false)
+  const [hasSignature, setHasSignature] = useState(false)
 
   const resolvedStatusKey = useMemo(() => {
     const normalized = routeStatusKey?.toLowerCase()
@@ -517,6 +529,7 @@ export default function OrderDetails() {
 
   const variant = STATUS_VARIANTS[resolvedStatusKey] ?? STATUS_VARIANTS.assigned
   const isAcceptedVariant = variant.key === 'accepted'
+  const isProgressVariant = variant.key === 'progress'
   const requiresCardDetails = variant.showCardDetails
 
   const timeReference = useMemo(() => resolveOrderTimestamp(order), [order])
@@ -643,8 +656,18 @@ export default function OrderDetails() {
     [navigate],
   )
 
+  const canCompleteDelivery = useMemo(
+    () => verificationChecks.id && verificationChecks.payment && verificationChecks.signature,
+    [verificationChecks],
+  )
+
   const handlePrimaryAction = useCallback(async () => {
     if (!order || !variant.primaryActionStatus || !token) {
+      return
+    }
+
+    if (isProgressVariant && !canCompleteDelivery) {
+      setInfoMessage({ type: 'error', text: 'Complete all delivery requirements before finishing.' })
       return
     }
 
@@ -660,7 +683,7 @@ export default function OrderDetails() {
     } finally {
       setActionLoading(false)
     }
-  }, [navigate, order, token, variant.primaryActionStatus])
+  }, [canCompleteDelivery, isProgressVariant, navigate, order, token, variant.primaryActionStatus])
 
   const handleCancelOrder = useCallback(async () => {
     if (!order || !token) {
@@ -723,6 +746,144 @@ export default function OrderDetails() {
     })
   }, [navigate, order, resolvedStatusKey])
 
+  const toggleVerificationCheck = useCallback((key) => {
+    if (!key) {
+      return
+    }
+
+    setInfoMessage(null)
+    setVerificationChecks((previous) => ({
+      ...previous,
+      [key]: !previous[key],
+    }))
+  }, [setInfoMessage])
+
+  const prepareSignatureCanvas = useCallback(() => {
+    const canvas = signatureCanvasRef.current
+    if (!canvas) {
+      return
+    }
+
+    const parent = canvas.parentElement
+    const width = parent ? parent.clientWidth : 600
+    const height = 220
+
+    canvas.width = width
+    canvas.height = height
+    canvas.style.width = `${width}px`
+    canvas.style.height = `${height}px`
+
+    const ctx = canvas.getContext('2d')
+    ctx.lineWidth = 2
+    ctx.lineCap = 'round'
+    ctx.strokeStyle = '#1f2937'
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, width, height)
+  }, [])
+
+  useEffect(() => {
+    if (!isProgressVariant) {
+      return
+    }
+
+    prepareSignatureCanvas()
+    window.addEventListener('resize', prepareSignatureCanvas)
+
+    return () => {
+      window.removeEventListener('resize', prepareSignatureCanvas)
+    }
+  }, [isProgressVariant, prepareSignatureCanvas])
+
+  useEffect(() => {
+    setVerificationChecks({ id: false, payment: false, signature: false })
+    setHasSignature(false)
+  }, [resolvedStatusKey])
+
+  const getSignatureCoordinates = useCallback((event) => {
+    const canvas = signatureCanvasRef.current
+    if (!canvas) {
+      return { x: 0, y: 0 }
+    }
+
+    const rect = canvas.getBoundingClientRect()
+    const clientX = event.clientX ?? event.touches?.[0]?.clientX ?? 0
+    const clientY = event.clientY ?? event.touches?.[0]?.clientY ?? 0
+
+    return {
+      x: clientX - rect.left,
+      y: clientY - rect.top,
+    }
+  }, [])
+
+  const handleSignaturePointerDown = useCallback(
+    (event) => {
+      event.preventDefault()
+      const canvas = signatureCanvasRef.current
+      if (!canvas) {
+        return
+      }
+
+      const ctx = canvas.getContext('2d')
+      const { x, y } = getSignatureCoordinates(event)
+      ctx.beginPath()
+      ctx.moveTo(x, y)
+      setIsDrawingSignature(true)
+    },
+    [getSignatureCoordinates],
+  )
+
+  const handleSignaturePointerMove = useCallback(
+    (event) => {
+      if (!isDrawingSignature) {
+        return
+      }
+
+      event.preventDefault()
+      const canvas = signatureCanvasRef.current
+      if (!canvas) {
+        return
+      }
+
+      const ctx = canvas.getContext('2d')
+      const { x, y } = getSignatureCoordinates(event)
+      ctx.lineTo(x, y)
+      ctx.stroke()
+      setHasSignature(true)
+      setVerificationChecks((previous) => ({ ...previous, signature: true }))
+      setInfoMessage(null)
+    },
+    [getSignatureCoordinates, isDrawingSignature, setInfoMessage],
+  )
+
+  const handleSignaturePointerUp = useCallback(
+    (event) => {
+      if (!isDrawingSignature) {
+        return
+      }
+
+      event.preventDefault()
+      const canvas = signatureCanvasRef.current
+      if (!canvas) {
+        return
+      }
+
+      const ctx = canvas.getContext('2d')
+      ctx.closePath()
+      setIsDrawingSignature(false)
+    },
+    [isDrawingSignature],
+  )
+
+  const handleSignatureClear = useCallback(() => {
+    prepareSignatureCanvas()
+    setHasSignature(false)
+    setVerificationChecks((previous) => ({ ...previous, signature: false }))
+  }, [prepareSignatureCanvas])
+
+  const handleBackToProgress = useCallback(() => {
+    navigate('/orders', { state: { focus: 'progress' } })
+  }, [navigate])
+
   if (loading && !order) {
     return (
       <div className="screen">
@@ -778,42 +939,231 @@ export default function OrderDetails() {
   const secondaryAddressHint =
     addressLines.length > 1 ? addressLines.slice(1, 3).join(', ') : null
 
+  const detailEntries = []
+
+  if (!isProgressVariant) {
+    detailEntries.push({
+      key: 'customer',
+      content: (
+        <span>
+          <strong>Customer:</strong> {contactName}
+        </span>
+      ),
+    })
+  }
+
+  if (!isProgressVariant) {
+    detailEntries.push({
+      key: 'address',
+      content: (
+        <span>
+          <strong>Address:</strong> {formatAddress(order.address)}
+        </span>
+      ),
+    })
+  }
+
+  if (order.owner?.orderCount != null) {
+    detailEntries.push({
+      key: 'orders-count',
+      content: (
+        <span>
+          <strong>Orders Count:</strong> {order.owner.orderCount}{' '}
+          {order.owner.orderCount === 1 ? <span className="order-badge">New Customer</span> : null}
+        </span>
+      ),
+    })
+  }
+
+  if (order.owner?.email) {
+    detailEntries.push({
+      key: 'email',
+      content: (
+        <span>
+          <strong>Email:</strong> {order.owner.email}
+        </span>
+      ),
+    })
+  }
+
+  if (order.owner?.dob) {
+    detailEntries.push({
+      key: 'dob',
+      content: (
+        <span>
+          <strong>DOB:</strong> {formatDate(order.owner.dob)}
+        </span>
+      ),
+    })
+  }
+
+  if (rawPhone && !isProgressVariant) {
+    detailEntries.push({
+      key: 'phone',
+      content: (
+        <span>
+          <strong>Phone:</strong>{' '}
+          <a href={phoneHref} rel="noreferrer">
+            {formattedPhone || rawPhone}
+          </a>
+        </span>
+      ),
+    })
+  }
+
+  detailEntries.push({
+    key: 'gift-delivery',
+    content: (
+      <span>
+        <strong>Gift Delivery:</strong> {order.giftDelivery ? 'Yes' : 'No'}
+      </span>
+    ),
+  })
+
+  if (order.giftDelivery && order.giftDeliveryDetails) {
+    const { recipientName, recipientPhone, recipientBusinessName, senderName, senderPhone, senderDOB } =
+      order.giftDeliveryDetails
+
+    if (recipientName) {
+      detailEntries.push({
+        key: 'recipient-name',
+        content: (
+          <span>
+            <strong>Recipient Name:</strong> {recipientName}
+          </span>
+        ),
+      })
+    }
+
+    if (recipientPhone) {
+      detailEntries.push({
+        key: 'recipient-phone',
+        content: (
+          <span>
+            <strong>Recipient Phone:</strong>{' '}
+            <a href={normalizePhoneHref(recipientPhone)} rel="noreferrer">
+              {formatPhoneNumber(recipientPhone) || recipientPhone}
+            </a>
+          </span>
+        ),
+      })
+    }
+
+    if (recipientBusinessName) {
+      detailEntries.push({
+        key: 'recipient-business',
+        content: (
+          <span>
+            <strong>Recipient Business:</strong> {recipientBusinessName}
+          </span>
+        ),
+      })
+    }
+
+    if (senderName) {
+      detailEntries.push({
+        key: 'sender-name',
+        content: (
+          <span>
+            <strong>Sender Name:</strong> {senderName}
+          </span>
+        ),
+      })
+    }
+
+    if (senderPhone) {
+      detailEntries.push({
+        key: 'sender-phone',
+        content: (
+          <span>
+            <strong>Sender Phone:</strong>{' '}
+            <a href={normalizePhoneHref(senderPhone)} rel="noreferrer">
+              {formatPhoneNumber(senderPhone) || senderPhone}
+            </a>
+          </span>
+        ),
+      })
+    }
+
+    if (senderDOB) {
+      detailEntries.push({
+        key: 'sender-dob',
+        content: (
+          <span>
+            <strong>Sender DOB:</strong> {formatDate(senderDOB)}
+          </span>
+        ),
+      })
+    }
+  }
+
+  if (variant.showCardDetails && cardDetails) {
+    detailEntries.push({
+      key: 'card-last4',
+      content: (
+        <span>
+          <strong>Last 4:</strong> **** **** **** {cardDetails.last4 || '—'}{' '}
+          {order.fromWallet ? <span className="order-badge order-badge-wallet">{order.walletMethod}</span> : null}
+        </span>
+      ),
+    })
+
+    detailEntries.push({
+      key: 'card-exp',
+      content: (
+        <span>
+          <strong>Expiration:</strong> {cardDetails.exp_month}/{cardDetails.exp_year}
+        </span>
+      ),
+    })
+  }
+
   return (
-    <div className="order-detail-screen">
+    <div className={['order-detail-screen', isProgressVariant ? 'progress-detail-layout' : '']
+      .filter(Boolean)
+      .join(' ')}>
       <LoaderOverlay show={actionLoading} label={overlayLabel} />
 
-      <header className="order-detail-header" aria-label="Driver portal header">
-        <div className="order-detail-brand">
-          <div className="order-detail-brand-text">
-            <span className="order-detail-brand-title">Jason's Delivery</span>
-            <span className="order-detail-brand-subtitle">Driver Portal</span>
+      <div className="order-detail-controls">
+        <button type="button" className="order-back-button" onClick={handleBackToProgress}>
+          ← Go back to In Progress
+        </button>
+      </div>
+
+      {!isProgressVariant ? (
+        <header className="order-detail-header" aria-label="Driver portal header">
+          <div className="order-detail-brand">
+            <div className="order-detail-brand-text">
+              <span className="order-detail-brand-title">Jason's Delivery</span>
+              <span className="order-detail-brand-subtitle">Driver Portal</span>
+            </div>
+            <div className="order-detail-badge" aria-label="Program: 7oct test">
+              <span className="order-detail-badge-label">7oct test</span>
+              <span className="order-detail-badge-icon" aria-hidden="true">🛰️</span>
+            </div>
           </div>
-          <div className="order-detail-badge" aria-label="Program: 7oct test">
-            <span className="order-detail-badge-label">7oct test</span>
-            <span className="order-detail-badge-icon" aria-hidden="true">🛰️</span>
-          </div>
-        </div>
-        <nav className="order-detail-tabs" aria-label="Order status tabs">
-          {STATUS_TABS.map((tab) => (
-            <button
-              key={tab.key}
-              type="button"
-              className={['order-detail-tab', tab.key === resolvedStatusKey ? 'active' : '']
-                .filter(Boolean)
-                .join(' ')}
-              aria-pressed={tab.key === resolvedStatusKey}
-              onClick={() => handleTabSelect(tab.key)}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </nav>
-      </header>
+          <nav className="order-detail-tabs" aria-label="Order status tabs">
+            {STATUS_TABS.map((tab) => (
+              <button
+                key={tab.key}
+                type="button"
+                className={['order-detail-tab', tab.key === resolvedStatusKey ? 'active' : '']
+                  .filter(Boolean)
+                  .join(' ')}
+                aria-pressed={tab.key === resolvedStatusKey}
+                onClick={() => handleTabSelect(tab.key)}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </nav>
+        </header>
+      ) : null}
 
       <section
         className={`order-ticket ${isExpanded ? 'expanded' : 'collapsed'} ${
           isAcceptedVariant ? 'accepted-view' : ''
-        }`}
+        } ${isProgressVariant ? 'progress-view' : ''}`}
         aria-labelledby="order-ticket-heading"
       >
         <header className="order-ticket-header">
@@ -830,7 +1180,7 @@ export default function OrderDetails() {
                 <span className="order-ticket-timer-label">Time since order</span>
               </div>
             ) : null}
-            {!isAcceptedVariant ? (
+            {!isAcceptedVariant && !isProgressVariant ? (
               <button
                 type="button"
                 className="order-collapse-toggle"
@@ -848,7 +1198,7 @@ export default function OrderDetails() {
           <span className={`order-status-pill ${variant.pillClass}`}>{variant.statusLabel}</span>
         ) : null}
 
-        {!isAcceptedVariant ? (
+        {!isAcceptedVariant && !isProgressVariant ? (
           <div className="order-compact-grid">
             <div className="order-compact-card">
               <span className="order-compact-label">Customer</span>
@@ -893,6 +1243,81 @@ export default function OrderDetails() {
               </button>
             ) : null}
           </div>
+        ) : isProgressVariant ? (
+          <div className="progress-finalize-layout">
+            <section className="finalize-card" aria-label="Required verifications">
+              <h2 className="finalize-heading">Required Verifications</h2>
+              <p className="finalize-subheading">Confirm each step before handing off the order.</p>
+              <ul className="finalize-checklist">
+                <li>
+                  <label className="finalize-check">
+                    <div className="finalize-check-copy">
+                      <span className="finalize-check-title">ID Verified (21+ years)</span>
+                      {order.owner?.dob ? (
+                        <span className="finalize-check-note">DOB: {formatDate(order.owner.dob)}</span>
+                      ) : null}
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={verificationChecks.id}
+                      onChange={() => toggleVerificationCheck('id')}
+                    />
+                  </label>
+                </li>
+                <li>
+                  <label className="finalize-check">
+                    <div className="finalize-check-copy">
+                      <span className="finalize-check-title">
+                        Credit Card Verified{cardDetails?.last4 ? ` (ending in ${cardDetails.last4})` : ''}
+                      </span>
+                      {cardLoading ? (
+                        <span className="finalize-check-note">Loading card details…</span>
+                      ) : null}
+                      {cardError ? (
+                        <span className="finalize-check-note error">{cardError}</span>
+                      ) : null}
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={verificationChecks.payment}
+                      onChange={() => toggleVerificationCheck('payment')}
+                    />
+                  </label>
+                </li>
+              </ul>
+            </section>
+
+            <section className="finalize-card" aria-label="Customer signature">
+              <h2 className="finalize-heading">Customer Signature</h2>
+              <div className={`finalize-signature ${hasSignature ? 'has-signature' : ''}`}>
+                <canvas
+                  ref={signatureCanvasRef}
+                  className="finalize-signature-pad"
+                  onPointerDown={handleSignaturePointerDown}
+                  onPointerMove={handleSignaturePointerMove}
+                  onPointerUp={handleSignaturePointerUp}
+                  onPointerLeave={handleSignaturePointerUp}
+                />
+              </div>
+              <button
+                type="button"
+                className="order-secondary-button finalize-clear"
+                onClick={handleSignatureClear}
+                disabled={!hasSignature}
+              >
+                Clear Signature
+              </button>
+            </section>
+
+            <button
+              type="button"
+              className="progress-complete-button finalize-primary"
+              onClick={handlePrimaryAction}
+              disabled={actionLoading || !canCompleteDelivery}
+            >
+              {actionLoading ? 'Finishing…' : 'Complete Delivery'}
+            </button>
+          </div>
         ) : (
           <>
             <div className={`order-contact ${isAcceptedVariant ? 'accepted' : ''}`}>
@@ -910,7 +1335,9 @@ export default function OrderDetails() {
             </div>
 
             <section
-              className={`order-section ${isAcceptedVariant ? 'accepted' : ''}`}
+              className={`order-section ${isAcceptedVariant ? 'accepted' : ''} ${
+                isProgressVariant ? 'progress' : ''
+              }`}
               aria-label="Delivery address"
             >
               <h2 className="order-section-title">Delivery Address</h2>
@@ -941,7 +1368,9 @@ export default function OrderDetails() {
             </section>
 
             <section
-              className={`order-section ${isAcceptedVariant ? 'accepted' : ''}`}
+              className={`order-section ${isAcceptedVariant ? 'accepted' : ''} ${
+                isProgressVariant ? 'progress' : ''
+              }`}
               aria-label="Order items"
             >
               <h2 className="order-section-title">Order Items</h2>
@@ -963,7 +1392,9 @@ export default function OrderDetails() {
             </section>
 
             <footer
-              className={`order-ticket-footer ${isAcceptedVariant ? 'accepted' : ''}`}
+              className={`order-ticket-footer ${isAcceptedVariant ? 'accepted' : ''} ${
+                isProgressVariant ? 'progress' : ''
+              }`}
             >
               <div className={`order-total ${isAcceptedVariant ? 'accepted' : ''}`}>
                 <span className="order-total-label">Order Total</span>
@@ -1001,7 +1432,7 @@ export default function OrderDetails() {
         </div>
       ) : null}
 
-      {isExpanded && (mapUrl || showDeliveryDetails || variant.showFinalizeActions) ? (
+      {!isProgressVariant && isExpanded && (mapUrl || showDeliveryDetails || variant.showFinalizeActions) ? (
         <div className="order-detail-sections">
           {mapUrl ? (
             <section className="order-info-card" aria-label="Delivery map">
@@ -1021,99 +1452,14 @@ export default function OrderDetails() {
                 </p>
               ) : null}
               <div className="order-detail-grid">
-                <span>
-                  <strong>Customer:</strong> {contactName}
-                </span>
-                <span>
-                  <strong>Orders Count:</strong> {order.owner?.orderCount ?? 0}{' '}
-                  {order.owner?.orderCount === 1 ? (
-                    <span className="order-badge">New Customer</span>
-                  ) : null}
-                </span>
-                <span>
-                  <strong>Address:</strong> {formatAddress(order.address)}
-                </span>
-                {order.owner?.email ? (
-                  <span>
-                    <strong>Email:</strong> {order.owner.email}
-                  </span>
-                ) : null}
-                {order.owner?.dob ? (
-                  <span>
-                    <strong>DOB:</strong> {formatDate(order.owner.dob)}
-                  </span>
-                ) : null}
-                {rawPhone ? (
-                  <span>
-                    <strong>Phone:</strong>{' '}
-                    <a href={phoneHref} rel="noreferrer">
-                      {formattedPhone || rawPhone}
-                    </a>
-                  </span>
-                ) : null}
-                <span>
-                  <strong>Gift Delivery:</strong> {order.giftDelivery ? 'Yes' : 'No'}
-                </span>
-                {order.giftDelivery && order.giftDeliveryDetails ? (
-                  <>
-                    {order.giftDeliveryDetails.recipientName ? (
-                      <span>
-                        <strong>Recipient Name:</strong> {order.giftDeliveryDetails.recipientName}
-                      </span>
-                    ) : null}
-                    {order.giftDeliveryDetails.recipientPhone ? (
-                      <span>
-                        <strong>Recipient Phone:</strong>{' '}
-                        <a href={normalizePhoneHref(order.giftDeliveryDetails.recipientPhone)} rel="noreferrer">
-                          {formatPhoneNumber(order.giftDeliveryDetails.recipientPhone) ||
-                            order.giftDeliveryDetails.recipientPhone}
-                        </a>
-                      </span>
-                    ) : null}
-                    {order.giftDeliveryDetails.recipientBusinessName ? (
-                      <span>
-                        <strong>Recipient Business:</strong> {order.giftDeliveryDetails.recipientBusinessName}
-                      </span>
-                    ) : null}
-                    {order.giftDeliveryDetails.senderName ? (
-                      <span>
-                        <strong>Sender Name:</strong> {order.giftDeliveryDetails.senderName}
-                      </span>
-                    ) : null}
-                    {order.giftDeliveryDetails.senderPhone ? (
-                      <span>
-                        <strong>Sender Phone:</strong>{' '}
-                        <a href={normalizePhoneHref(order.giftDeliveryDetails.senderPhone)} rel="noreferrer">
-                          {formatPhoneNumber(order.giftDeliveryDetails.senderPhone) ||
-                            order.giftDeliveryDetails.senderPhone}
-                        </a>
-                      </span>
-                    ) : null}
-                    {order.giftDeliveryDetails.senderDOB ? (
-                      <span>
-                        <strong>Sender DOB:</strong> {formatDate(order.giftDeliveryDetails.senderDOB)}
-                      </span>
-                    ) : null}
-                  </>
-                ) : null}
+                {detailEntries.map((entry) => (
+                  <span key={entry.key}>{entry.content}</span>
+                ))}
               </div>
               {cardError ? (
                 <p className="notice error" role="alert">
                   {cardError}
                 </p>
-              ) : null}
-              {variant.showCardDetails && cardDetails ? (
-                <div className="order-detail-grid" style={{ marginTop: '0.75rem' }}>
-                  <span>
-                    <strong>Last 4:</strong> **** **** **** {cardDetails.last4 || '—'}{' '}
-                    {order.fromWallet ? (
-                      <span className="order-badge order-badge-wallet">{order.walletMethod}</span>
-                    ) : null}
-                  </span>
-                  <span>
-                    <strong>Expiration:</strong> {cardDetails.exp_month}/{cardDetails.exp_year}
-                  </span>
-                </div>
               ) : null}
               {cardLoading ? <p className="order-card-meta">Loading payment details…</p> : null}
             </section>
