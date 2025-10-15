@@ -283,6 +283,65 @@ function buildMapsLink(address) {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`
 }
 
+function buildNavigationLinks(address) {
+  if (!address) {
+    return { google: null, apple: null, waze: null }
+  }
+
+  let latitude = null
+  let longitude = null
+
+  if (Array.isArray(address.loc) && address.loc.length >= 2) {
+    const [lng, lat] = address.loc
+    if (typeof lat === 'number' && typeof lng === 'number') {
+      latitude = lat
+      longitude = lng
+    }
+  }
+
+  if (typeof address.latitude === 'number' && typeof address.longitude === 'number') {
+    latitude = address.latitude
+    longitude = address.longitude
+  }
+
+  if (typeof address.lat === 'number' && typeof address.lng === 'number') {
+    latitude = address.lat
+    longitude = address.lng
+  }
+
+  const queryLines = buildAddressLines(address)
+    .filter((line) => line && line !== 'No address provided')
+  const query = queryLines.join(', ')
+  const encodedQuery = query ? encodeURIComponent(query) : null
+
+  const googleBase = 'https://www.google.com/maps/search/?api=1'
+  const appleBase = 'https://maps.apple.com/'
+  const wazeBase = 'https://www.waze.com/ul'
+
+  const google =
+    latitude != null && longitude != null
+      ? `${googleBase}&query=${latitude},${longitude}`
+      : encodedQuery
+      ? `${googleBase}&query=${encodedQuery}`
+      : null
+
+  const apple =
+    latitude != null && longitude != null
+      ? `${appleBase}?ll=${latitude},${longitude}`
+      : encodedQuery
+      ? `${appleBase}?q=${encodedQuery}`
+      : null
+
+  const waze =
+    latitude != null && longitude != null
+      ? `${wazeBase}?ll=${latitude},${longitude}&navigate=yes`
+      : encodedQuery
+      ? `${wazeBase}?q=${encodedQuery}&navigate=yes`
+      : null
+
+  return { google, apple, waze }
+}
+
 function resolveItemName(item) {
   if (!item) {
     return null
@@ -578,6 +637,52 @@ export default function OrdersFeed() {
     [token],
   )
 
+  const handleStartOrder = useCallback(
+    async (orderData) => {
+      if (!orderData?._id || !token) {
+        return
+      }
+
+      setProcessingOrders((current) => {
+        const next = new Set(current)
+        next.add(orderData._id)
+        return next
+      })
+      setError(null)
+
+      try {
+        const response = await updateOrderStatus(orderData._id, 'In Progress', token)
+        const updatedOrder = response?.order ?? response ?? {}
+
+        setOrders((previousOrders) =>
+          previousOrders.map((order) => {
+            if (order._id !== orderData._id) {
+              return order
+            }
+
+            return {
+              ...order,
+              ...updatedOrder,
+              status: updatedOrder.status ?? 'In Progress',
+            }
+          }),
+        )
+
+        setView((currentView) => (currentView === 'progress' ? currentView : 'progress'))
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Unable to start order.'
+        setError(message)
+      } finally {
+        setProcessingOrders((current) => {
+          const next = new Set(current)
+          next.delete(orderData._id)
+          return next
+        })
+      }
+    },
+    [token],
+  )
+
   if (loading && orders.length === 0) {
     return (
       <div className="orders-loading">
@@ -586,7 +691,11 @@ export default function OrdersFeed() {
     )
   }
 
-  const listClassName = ['orders-list', viewConfig.key === 'assigned' ? 'orders-list--assigned' : '']
+  const listClassName = [
+    'orders-list',
+    viewConfig.key === 'assigned' ? 'orders-list--assigned' : '',
+    viewConfig.key === 'accepted' ? 'orders-list--accepted' : '',
+  ]
     .filter(Boolean)
     .join(' ')
 
@@ -767,6 +876,135 @@ export default function OrdersFeed() {
                         disabled={processingOrders.has(order._id)}
                       >
                         {processingOrders.has(order._id) ? 'Accepting…' : 'Accept Order'}
+                      </button>
+                    </footer>
+                  </article>
+                )
+              }
+
+              if (viewConfig.key === 'accepted') {
+                const orderNumber = formatOrderNumber(order)
+                const contactName = formatName(order.owner)
+                const contactPhone = resolveContactPhone(order)
+                const phoneDisplay = formatPhoneNumber(contactPhone)
+                const phoneHref = normalizePhoneHref(contactPhone)
+                const addressLines = buildAddressLines(order.address)
+                const navigationLinks = buildNavigationLinks(order.address)
+                const navigationOptions = [
+                  navigationLinks.google
+                    ? { key: 'google', label: 'Google Maps', href: navigationLinks.google }
+                    : null,
+                  navigationLinks.apple
+                    ? { key: 'apple', label: 'Apple Maps', href: navigationLinks.apple }
+                    : null,
+                  navigationLinks.waze
+                    ? { key: 'waze', label: 'Waze', href: navigationLinks.waze }
+                    : null,
+                ].filter(Boolean)
+                const items = resolveItems(order)
+                const orderTotalAmount = resolveOrderTotal(order, items)
+                const orderTotalDisplay = formatCurrencyValue(orderTotalAmount)
+                const timeSinceOrder = formatElapsedTime(resolveOrderTimestamp(order))
+                const initials = getInitials(contactName)
+                const isProcessing = processingOrders.has(order._id)
+
+                return (
+                  <article
+                    key={order._id}
+                    className="assigned-order-card accepted-order-card"
+                    role="listitem"
+                    aria-label={`Order ${orderNumber}`}
+                  >
+                    <header className="assigned-order-header accepted-order-header">
+                      <div className="assigned-order-heading">
+                        <span className="assigned-order-label">Order</span>
+                        <span className="assigned-order-number">#{orderNumber}</span>
+                      </div>
+                      <div className="accepted-order-header-meta">
+                        {timeSinceOrder ? (
+                          <div className="assigned-order-timer accepted-order-timer" aria-label="Time since order">
+                            <span className="assigned-order-timer-label">Time since order</span>
+                            <span className="assigned-order-timer-value">{timeSinceOrder}</span>
+                          </div>
+                        ) : null}
+                        <span className="order-status-pill accepted">Accepted</span>
+                      </div>
+                    </header>
+
+                    <section className="assigned-order-section" aria-label="Customer details">
+                      <div className="assigned-order-customer">
+                        <span className="assigned-order-avatar" aria-hidden="true">
+                          {initials}
+                        </span>
+                        <div className="assigned-order-contact">
+                          <p className="assigned-order-name">{contactName}</p>
+                          {phoneDisplay ? (
+                            <a
+                              href={phoneHref ?? undefined}
+                              className="assigned-order-phone"
+                              onClick={(event) => event.stopPropagation?.()}
+                            >
+                              {phoneDisplay}
+                            </a>
+                          ) : null}
+                        </div>
+                      </div>
+                    </section>
+
+                    <section className="assigned-order-section" aria-label="Delivery address">
+                      <p className="assigned-order-section-title">Delivery Address</p>
+                      <address className="assigned-order-address">
+                        {addressLines.map((line) => (
+                          <span key={line}>{line}</span>
+                        ))}
+                      </address>
+                      {navigationOptions.length > 0 ? (
+                        <div className="assigned-order-address-actions accepted-order-address-actions">
+                          {navigationOptions.map((option) => (
+                            <a
+                              key={option.key}
+                              href={option.href}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="assigned-order-map-link"
+                              onClick={(event) => event.stopPropagation?.()}
+                            >
+                              <span aria-hidden="true" className="assigned-order-map-icon" />
+                              <span>{option.label}</span>
+                            </a>
+                          ))}
+                        </div>
+                      ) : null}
+                    </section>
+
+                    <section className="assigned-order-section" aria-label="Order items">
+                      <p className="assigned-order-section-title">Order Items</p>
+                      <ul className="assigned-order-items">
+                        {items.length > 0 ? (
+                          items.map((item) => (
+                            <li key={item.id} className="assigned-order-item">
+                              <span className="assigned-order-item-name">{item.name}</span>
+                              <span className="assigned-order-item-quantity">{item.quantity}x</span>
+                            </li>
+                          ))
+                        ) : (
+                          <li className="assigned-order-item empty">No items listed.</li>
+                        )}
+                      </ul>
+                    </section>
+
+                    <footer className="assigned-order-footer">
+                      <div className="assigned-order-total">
+                        <span className="assigned-order-total-label">Order Total</span>
+                        <span className="assigned-order-total-value">{orderTotalDisplay ?? '—'}</span>
+                      </div>
+                      <button
+                        type="button"
+                        className="assigned-order-accept"
+                        onClick={() => handleStartOrder(order)}
+                        disabled={isProcessing}
+                      >
+                        {isProcessing ? 'Updating…' : 'In progress'}
                       </button>
                     </footer>
                   </article>
