@@ -263,6 +263,73 @@ function buildAddressLines(address) {
   return lines.length > 0 ? Array.from(new Set(lines.filter(Boolean))) : ['No address provided']
 }
 
+function buildMapsLink(address) {
+  if (!address) {
+    return null
+  }
+
+  if (typeof address === 'string') {
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`
+  }
+
+  const lines = buildAddressLines(address)
+  const filtered = lines.filter((line) => line && line.toLowerCase() !== 'no address provided')
+
+  if (filtered.length === 0) {
+    return null
+  }
+
+  const query = filtered.join(', ')
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`
+}
+
+function resolveItemName(item) {
+  if (!item) {
+    return null
+  }
+
+  if (typeof item === 'string') {
+    return item
+  }
+
+  const product = item.product && typeof item.product === 'object' ? item.product : null
+
+  const candidates = [
+    item.name,
+    item.title,
+    item.productName,
+    item.itemName,
+    item.variantName,
+    item.variant,
+    item.menuItem,
+    item.description,
+    item.label,
+    item.item,
+    product?.name,
+    product?.title,
+    product?.productName,
+    product?.itemName,
+    product?.label,
+    product?.description,
+  ]
+
+  const resolved = candidates.find((value) => typeof value === 'string' && value.trim().length > 0)
+
+  if (resolved) {
+    return resolved.trim()
+  }
+
+  if (typeof item.sku === 'string' && item.sku.trim()) {
+    return item.sku.trim()
+  }
+
+  if (typeof item.id === 'string' && item.id.trim()) {
+    return item.id.trim()
+  }
+
+  return null
+}
+
 function resolveItems(order) {
   if (!order) {
     return []
@@ -273,9 +340,10 @@ function resolveItems(order) {
 
     return order.products.map((product, index) => {
       const quantity = Number.isFinite(quantities[index]) ? quantities[index] : product.quantity
+      const name = resolveItemName(product)
       return {
         id: product.id || product._id || `${product.name}-${index}`,
-        name: product.name || product.title || product.productName || 'Item',
+        name: name || `Item ${index + 1}`,
         quantity: Number.isFinite(quantity) && quantity > 0 ? quantity : 1,
       }
     })
@@ -284,7 +352,7 @@ function resolveItems(order) {
   if (Array.isArray(order.items) && order.items.length > 0) {
     return order.items.map((item, index) => ({
       id: item.id || item._id || `${item.name}-${index}`,
-      name: item.name || item.title || item.productName || 'Item',
+      name: resolveItemName(item) || `Item ${index + 1}`,
       quantity: Number.isFinite(item.quantity) && item.quantity > 0 ? item.quantity : 1,
       price: item.price || item.amount,
     }))
@@ -293,7 +361,7 @@ function resolveItems(order) {
   if (order.cart && Array.isArray(order.cart.items) && order.cart.items.length > 0) {
     return order.cart.items.map((item, index) => ({
       id: item.id || item._id || `${item.name}-${index}`,
-      name: item.name || item.title || item.productName || 'Item',
+      name: resolveItemName(item) || `Item ${index + 1}`,
       quantity: Number.isFinite(item.quantity) && item.quantity > 0 ? item.quantity : 1,
       price: item.price || item.amount,
     }))
@@ -551,6 +619,7 @@ export default function OrdersFeed() {
                 const phoneDisplay = formatPhoneNumber(contactPhone)
                 const phoneHref = normalizePhoneHref(contactPhone)
                 const addressLines = buildAddressLines(order.address)
+                const mapsLink = buildMapsLink(order.address)
                 const items = resolveItems(order)
                 const orderTotalAmount = resolveOrderTotal(order, items)
                 const orderTotalDisplay = formatCurrencyValue(orderTotalAmount)
@@ -570,9 +639,10 @@ export default function OrdersFeed() {
                         <span className="assigned-order-number">#{orderNumber}</span>
                       </div>
                       {timeSinceOrder ? (
-                        <span className="assigned-order-timer" aria-label="Time since order">
-                          {timeSinceOrder}
-                        </span>
+                        <div className="assigned-order-timer" aria-label="Time since order">
+                          <span className="assigned-order-timer-label">Time since order</span>
+                          <span className="assigned-order-timer-value">{timeSinceOrder}</span>
+                        </div>
                       ) : null}
                     </header>
 
@@ -599,9 +669,21 @@ export default function OrdersFeed() {
                     <section className="assigned-order-section" aria-label="Delivery address">
                       <p className="assigned-order-section-title">Delivery Address</p>
                       <address className="assigned-order-address">
-                        {addressLines.map((line) => (
-                          <span key={line}>{line}</span>
-                        ))}
+                        {mapsLink ? (
+                          <a
+                            href={mapsLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="assigned-order-map-link"
+                            onClick={(event) => event.stopPropagation?.()}
+                          >
+                            {addressLines.map((line) => (
+                              <span key={line}>{line}</span>
+                            ))}
+                          </a>
+                        ) : (
+                          addressLines.map((line) => <span key={line}>{line}</span>)
+                        )}
                       </address>
                     </section>
 
