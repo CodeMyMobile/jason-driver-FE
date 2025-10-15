@@ -3,7 +3,13 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import LoaderOverlay from '../../components/LoaderOverlay'
 import { useAuth } from '../../context/AuthContext'
 import fallbackImage from '../../assets/placeholder-product.svg'
-import { fetchCardDetails, fetchOrderById, updateOrder, updateOrderStatus } from '../../services/orderService'
+import {
+  fetchCardDetails,
+  fetchCardUsage,
+  fetchOrderById,
+  updateOrder,
+  updateOrderStatus,
+} from '../../services/orderService'
 import './Orders.css'
 
 const STATUS_VARIANTS = {
@@ -435,6 +441,66 @@ function resolveOrderTotal(order, items) {
   return Number.isFinite(computed) && computed > 0 ? computed : null
 }
 
+function resolveStripeCustomerId(order) {
+  if (!order) {
+    return null
+  }
+
+  const candidates = [
+    order.owner?.stripeID,
+    order.owner?.stripeId,
+    order.owner?.stripeCustomerID,
+    order.owner?.stripeCustomerId,
+    order.owner?.stripe_customer_id,
+    order.stripeCustomerID,
+    order.stripeCustomerId,
+    order.stripeID,
+  ]
+
+  return candidates.find((value) => typeof value === 'string' && value.trim().length > 0) ?? null
+}
+
+function normaliseCardReference(reference) {
+  if (!reference) {
+    return null
+  }
+
+  if (typeof reference === 'string') {
+    return reference
+  }
+
+  if (typeof reference === 'object') {
+    return (
+      reference.cardID ||
+      reference.cardId ||
+      reference.id ||
+      reference._id ||
+      reference.paymentMethodId ||
+      reference.paymentMethodID ||
+      null
+    )
+  }
+
+  return null
+}
+
+function resolveCardReference(order) {
+  if (!order) {
+    return null
+  }
+
+  const candidates = [
+    order.creditCard,
+    order.paymentMethod,
+    order.payment?.cardId,
+    order.payment?.cardID,
+    order.cardID,
+    order.cardId,
+  ]
+
+  return candidates.map(normaliseCardReference).find((value) => typeof value === 'string' && value.trim()) ?? null
+}
+
 function formatCurrencyValue(value) {
   if (value == null) {
     return null
@@ -464,6 +530,8 @@ export default function OrderDetails() {
   const [cardDetails, setCardDetails] = useState(null)
   const [cardError, setCardError] = useState(null)
   const [cardLoading, setCardLoading] = useState(false)
+  const [cardUsage, setCardUsage] = useState(null)
+  const [cardUsageError, setCardUsageError] = useState(null)
   const [actionLoading, setActionLoading] = useState(false)
   const [infoMessage, setInfoMessage] = useState(null)
   const [imageStatus, setImageStatus] = useState([])
@@ -481,6 +549,8 @@ export default function OrderDetails() {
   const requiresCardDetails = variant.showCardDetails
 
   const displayItems = useMemo(() => resolveDisplayItems(order), [order])
+  const stripeCustomerId = useMemo(() => resolveStripeCustomerId(order), [order])
+  const cardReference = useMemo(() => resolveCardReference(order), [order])
 
   useEffect(() => {
     let ignore = false
@@ -525,26 +595,29 @@ export default function OrderDetails() {
     let ignore = false
 
     async function loadCardDetails() {
-      if (!requiresCardDetails || !order || !token) {
+      if (!requiresCardDetails || !token) {
         setCardDetails(null)
         setCardError(null)
+        setCardUsage(null)
+        setCardUsageError(null)
         setCardLoading(false)
         return
       }
 
-      const reference = order.creditCard || order.paymentMethod
-
-      if (!reference) {
+      if (!stripeCustomerId || !cardReference) {
         setCardDetails(null)
+        setCardUsage(null)
+        setCardUsageError(null)
         setCardLoading(false)
         return
       }
 
       setCardLoading(true)
       setCardError(null)
+      setCardUsageError(null)
 
       try {
-        const details = await fetchCardDetails(order.owner?.stripeID, reference, token)
+        const details = await fetchCardDetails(stripeCustomerId, cardReference, token)
         if (!ignore) {
           setCardDetails(details)
         }
@@ -552,11 +625,24 @@ export default function OrderDetails() {
         if (!ignore) {
           const message = err instanceof Error ? err.message : 'Unable to load card details.'
           setCardError(message)
+          setCardDetails(null)
         }
-      } finally {
+      }
+
+      try {
+        const usage = await fetchCardUsage(cardReference, token)
         if (!ignore) {
-          setCardLoading(false)
+          setCardUsage(usage)
         }
+      } catch (err) {
+        if (!ignore) {
+          const message = err instanceof Error ? err.message : 'Unable to load card usage.'
+          setCardUsageError(message)
+        }
+      }
+
+      if (!ignore) {
+        setCardLoading(false)
       }
     }
 
@@ -565,7 +651,7 @@ export default function OrderDetails() {
     return () => {
       ignore = true
     }
-  }, [order, token, requiresCardDetails, variant.showCardDetails])
+  }, [token, requiresCardDetails, variant.showCardDetails, stripeCustomerId, cardReference])
 
   const handleImageError = useCallback((index) => {
     setImageStatus((prev) => {
@@ -882,10 +968,20 @@ export default function OrderDetails() {
             <span>
               <strong>Expiration:</strong> {cardDetails.exp_month}/{cardDetails.exp_year}
             </span>
+            {cardUsage != null ? (
+              <span>
+                <strong>Times Used:</strong> {cardUsage}
+              </span>
+            ) : null}
           </div>
         ) : null}
 
         {cardLoading ? <p className="order-card-meta">Loading payment details…</p> : null}
+        {cardUsageError ? (
+          <p className="order-card-meta error" role="status">
+            {cardUsageError}
+          </p>
+        ) : null}
 
         {(googleMapsUrl || appleMapsUrl || wazeMapsUrl || addressLines.length > 0) && (
           <div className="map-link-grid">
@@ -951,4 +1047,3 @@ export default function OrderDetails() {
     </div>
   )
 }
-

@@ -118,16 +118,37 @@ export async function fetchCardDetails(stripeCustomerId, cardReference, token) {
   }
 
   try {
-    const response = await client.get(
-      `/drivers/customers/${stripeCustomerId}/cards/${cardReference}`,
+    const response = await client.put(
+      '/customers/stripe',
+      {
+        stripeID: stripeCustomerId,
+        cardID: cardReference,
+      },
       {
         headers: authHeaders(token),
       },
     )
 
-    return response.data?.card ?? response.data
+    return response.data?.data ?? response.data?.card ?? response.data
   } catch (error) {
     throw parseError(error, 'Unable to fetch card details.')
+  }
+}
+
+export async function fetchCardUsage(cardReference, token) {
+  if (!cardReference) {
+    return null
+  }
+
+  try {
+    const response = await client.get(`/drivers/orders/cards/${cardReference}`, {
+      headers: authHeaders(token),
+    })
+
+    const value = response.data?.count ?? response.data?.usage ?? response.data
+    return typeof value === 'number' && Number.isFinite(value) ? value : null
+  } catch (error) {
+    throw parseError(error, 'Unable to fetch card usage.')
   }
 }
 
