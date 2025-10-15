@@ -769,6 +769,15 @@ export default function OrdersFeed() {
     )
   }
 
+  const listClassName = [
+    'orders-list',
+    viewConfig.key === 'assigned' ? 'orders-list--assigned' : '',
+    viewConfig.key === 'accepted' ? 'orders-list--accepted' : '',
+    viewConfig.key === 'progress' ? 'orders-list--progress' : '',
+  ]
+    .filter(Boolean)
+    .join(' ')
+
   return (
     <div className="orders-surface">
       <section className="orders-card" aria-labelledby="orders-title">

@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import LoaderOverlay from '../../components/LoaderOverlay'
 import { useAuth } from '../../context/AuthContext'
-import fallbackImage from '../../assets/placeholder-product.svg'
 import { fetchCardDetails, fetchOrderById, updateOrder, updateOrderStatus } from '../../services/orderService'
 import './Orders.css'
 
@@ -11,7 +10,7 @@ const STATUS_VARIANTS = {
     key: 'assigned',
     statusLabel: 'Assigned',
     pillClass: 'assigned',
-    primaryActionLabel: 'Tap to Accept',
+    primaryActionLabel: 'Accept Order',
     primaryActionStatus: 'Accepted',
     showMap: false,
     showCardDetails: false,
@@ -21,7 +20,7 @@ const STATUS_VARIANTS = {
     key: 'accepted',
     statusLabel: 'Accepted',
     pillClass: 'accepted',
-    primaryActionLabel: 'Tap to Start Delivery',
+    primaryActionLabel: 'In progress',
     primaryActionStatus: 'In Progress',
     showMap: true,
     showCardDetails: false,
@@ -31,13 +30,19 @@ const STATUS_VARIANTS = {
     key: 'progress',
     statusLabel: 'In Progress',
     pillClass: 'progress',
-    primaryActionLabel: null,
-    primaryActionStatus: null,
+    primaryActionLabel: 'Complete',
+    primaryActionStatus: 'Completed',
     showMap: true,
     showCardDetails: true,
     showFinalizeActions: true,
   },
 }
+
+const STATUS_TABS = [
+  { key: 'assigned', label: 'Pending' },
+  { key: 'accepted', label: 'Active' },
+  { key: 'progress', label: 'Completed' },
+]
 
 function inferStatusKey(status) {
   if (!status) {
@@ -478,6 +483,8 @@ export default function OrderDetails() {
   }, [routeStatusKey, order?.status])
 
   const variant = STATUS_VARIANTS[resolvedStatusKey] ?? STATUS_VARIANTS.assigned
+  const isAcceptedVariant = variant.key === 'accepted'
+  const isProgressVariant = variant.key === 'progress'
   const requiresCardDetails = variant.showCardDetails
 
   const displayItems = useMemo(() => resolveDisplayItems(order), [order])
@@ -567,20 +574,33 @@ export default function OrderDetails() {
     }
   }, [order, token, requiresCardDetails, variant.showCardDetails])
 
-  const handleImageError = useCallback((index) => {
-    setImageStatus((prev) => {
-      if (!prev || prev.length === 0) {
-        return prev
+  const toggleExpanded = useCallback(() => {
+    setIsExpanded((prev) => !prev)
+  }, [])
+
+  const handleTabSelect = useCallback(
+    (tabKey) => {
+      if (!tabKey) {
+        return
       }
 
-      const next = [...prev]
-      next[index] = false
-      return next
-    })
-  }, [])
+      navigate('/orders', { state: { focus: tabKey } })
+    },
+    [navigate],
+  )
+
+  const canCompleteDelivery = useMemo(
+    () => verificationChecks.id && verificationChecks.payment && verificationChecks.signature,
+    [verificationChecks],
+  )
 
   const handlePrimaryAction = useCallback(async () => {
     if (!order || !variant.primaryActionStatus || !token) {
+      return
+    }
+
+    if (isProgressVariant && !canCompleteDelivery) {
+      setInfoMessage({ type: 'error', text: 'Complete all delivery requirements before finishing.' })
       return
     }
 
@@ -596,7 +616,7 @@ export default function OrderDetails() {
     } finally {
       setActionLoading(false)
     }
-  }, [navigate, order, token, variant.primaryActionStatus])
+  }, [canCompleteDelivery, isProgressVariant, navigate, order, token, variant.primaryActionStatus])
 
   const handleCancelOrder = useCallback(async () => {
     if (!order || !token) {
@@ -659,6 +679,144 @@ export default function OrderDetails() {
     })
   }, [navigate, order, resolvedStatusKey])
 
+  const toggleVerificationCheck = useCallback((key) => {
+    if (!key) {
+      return
+    }
+
+    setInfoMessage(null)
+    setVerificationChecks((previous) => ({
+      ...previous,
+      [key]: !previous[key],
+    }))
+  }, [setInfoMessage])
+
+  const prepareSignatureCanvas = useCallback(() => {
+    const canvas = signatureCanvasRef.current
+    if (!canvas) {
+      return
+    }
+
+    const parent = canvas.parentElement
+    const width = parent ? parent.clientWidth : 600
+    const height = 220
+
+    canvas.width = width
+    canvas.height = height
+    canvas.style.width = `${width}px`
+    canvas.style.height = `${height}px`
+
+    const ctx = canvas.getContext('2d')
+    ctx.lineWidth = 2
+    ctx.lineCap = 'round'
+    ctx.strokeStyle = '#1f2937'
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, width, height)
+  }, [])
+
+  useEffect(() => {
+    if (!isProgressVariant) {
+      return
+    }
+
+    prepareSignatureCanvas()
+    window.addEventListener('resize', prepareSignatureCanvas)
+
+    return () => {
+      window.removeEventListener('resize', prepareSignatureCanvas)
+    }
+  }, [isProgressVariant, prepareSignatureCanvas])
+
+  useEffect(() => {
+    setVerificationChecks({ id: false, payment: false, signature: false })
+    setHasSignature(false)
+  }, [resolvedStatusKey])
+
+  const getSignatureCoordinates = useCallback((event) => {
+    const canvas = signatureCanvasRef.current
+    if (!canvas) {
+      return { x: 0, y: 0 }
+    }
+
+    const rect = canvas.getBoundingClientRect()
+    const clientX = event.clientX ?? event.touches?.[0]?.clientX ?? 0
+    const clientY = event.clientY ?? event.touches?.[0]?.clientY ?? 0
+
+    return {
+      x: clientX - rect.left,
+      y: clientY - rect.top,
+    }
+  }, [])
+
+  const handleSignaturePointerDown = useCallback(
+    (event) => {
+      event.preventDefault()
+      const canvas = signatureCanvasRef.current
+      if (!canvas) {
+        return
+      }
+
+      const ctx = canvas.getContext('2d')
+      const { x, y } = getSignatureCoordinates(event)
+      ctx.beginPath()
+      ctx.moveTo(x, y)
+      setIsDrawingSignature(true)
+    },
+    [getSignatureCoordinates],
+  )
+
+  const handleSignaturePointerMove = useCallback(
+    (event) => {
+      if (!isDrawingSignature) {
+        return
+      }
+
+      event.preventDefault()
+      const canvas = signatureCanvasRef.current
+      if (!canvas) {
+        return
+      }
+
+      const ctx = canvas.getContext('2d')
+      const { x, y } = getSignatureCoordinates(event)
+      ctx.lineTo(x, y)
+      ctx.stroke()
+      setHasSignature(true)
+      setVerificationChecks((previous) => ({ ...previous, signature: true }))
+      setInfoMessage(null)
+    },
+    [getSignatureCoordinates, isDrawingSignature, setInfoMessage],
+  )
+
+  const handleSignaturePointerUp = useCallback(
+    (event) => {
+      if (!isDrawingSignature) {
+        return
+      }
+
+      event.preventDefault()
+      const canvas = signatureCanvasRef.current
+      if (!canvas) {
+        return
+      }
+
+      const ctx = canvas.getContext('2d')
+      ctx.closePath()
+      setIsDrawingSignature(false)
+    },
+    [isDrawingSignature],
+  )
+
+  const handleSignatureClear = useCallback(() => {
+    prepareSignatureCanvas()
+    setHasSignature(false)
+    setVerificationChecks((previous) => ({ ...previous, signature: false }))
+  }, [prepareSignatureCanvas])
+
+  const handleBackToProgress = useCallback(() => {
+    navigate('/orders', { state: { focus: 'progress' } })
+  }, [navigate])
+
   if (loading && !order) {
     return (
       <div className="screen">
@@ -699,9 +857,49 @@ export default function OrderDetails() {
   const orderTotalAmount = resolveOrderTotal(order, displayItems)
   const orderTotalDisplay = formatCurrencyValue(orderTotalAmount)
 
-  return (
-    <div className="order-detail-screen">
-      <LoaderOverlay show={actionLoading} label={overlayLabel} />
+  const contactName = formatName(order.owner)
+  const rawPhone =
+    order.owner?.phone ||
+    order.owner?.phoneNumber ||
+    order.owner?.mobile ||
+    order.contactPhone ||
+    order.phoneNumber ||
+    order.phone ||
+    null
+  const formattedPhone = formatPhoneNumber(rawPhone)
+  const phoneHref = normalizePhoneHref(rawPhone)
+  const addressLines = buildAddressLines(order.address)
+  const {
+    google: googleMapsUrl,
+    apple: appleMapsUrl,
+    waze: wazeMapsUrl,
+  } = buildMapLinks(order.address)
+  const primaryButtonLabel = resolvePrimaryButtonLabel(variant)
+  const showDeliveryDetails = Boolean(
+    order.deliveryNote ||
+    order.owner?.email ||
+    order.owner?.dob ||
+    rawPhone ||
+    order.giftDelivery ||
+    (variant.showCardDetails && (cardDetails || cardLoading)) ||
+    cardError,
+  )
+  const primaryAddressLine = addressLines[0] ?? 'No address provided'
+  const secondaryAddressHint =
+    addressLines.length > 1 ? addressLines.slice(1, 3).join(', ') : null
+
+  const detailEntries = []
+
+  if (!isProgressVariant) {
+    detailEntries.push({
+      key: 'customer',
+      content: (
+        <span>
+          <strong>Customer:</strong> {contactName}
+        </span>
+      ),
+    })
+  }
 
       <div className="order-detail-header">
         <div className="order-detail-header-top">
@@ -719,23 +917,39 @@ export default function OrderDetails() {
         </div>
       </div>
 
-      {infoMessage ? (
-        <p className={`notice ${infoMessage.type}`} role="status">
-          {infoMessage.text}
-        </p>
-      ) : null}
+  if (order.owner?.orderCount != null) {
+    detailEntries.push({
+      key: 'orders-count',
+      content: (
+        <span>
+          <strong>Orders Count:</strong> {order.owner.orderCount}{' '}
+          {order.owner.orderCount === 1 ? <span className="order-badge">New Customer</span> : null}
+        </span>
+      ),
+    })
+  }
 
-      {error && order ? (
-        <div className="form-error" role="alert">
-          {error}
-        </div>
-      ) : null}
+  if (order.owner?.email) {
+    detailEntries.push({
+      key: 'email',
+      content: (
+        <span>
+          <strong>Email:</strong> {order.owner.email}
+        </span>
+      ),
+    })
+  }
 
-      {mapUrl ? (
-        <div className="map-preview">
-          <img src={mapUrl} alt="Delivery location map" loading="lazy" />
-        </div>
-      ) : null}
+  if (order.owner?.dob) {
+    detailEntries.push({
+      key: 'dob',
+      content: (
+        <span>
+          <strong>DOB:</strong> {formatDate(order.owner.dob)}
+        </span>
+      ),
+    })
+  }
 
       <section className="order-section-card" aria-label="Order summary">
         <div className="section-heading">
@@ -782,12 +996,30 @@ export default function OrderDetails() {
           <span>
             <strong>Customer:</strong> {contactName}
           </span>
+        ),
+      })
+    }
+
+    if (recipientPhone) {
+      detailEntries.push({
+        key: 'recipient-phone',
+        content: (
           <span>
-            <strong>Orders Count:</strong> {order.owner?.orderCount ?? 0}{' '}
-            {order.owner?.orderCount === 1 ? <span className="badge">New Customer</span> : null}
+            <strong>Recipient Phone:</strong>{' '}
+            <a href={normalizePhoneHref(recipientPhone)} rel="noreferrer">
+              {formatPhoneNumber(recipientPhone) || recipientPhone}
+            </a>
           </span>
+        ),
+      })
+    }
+
+    if (recipientBusinessName) {
+      detailEntries.push({
+        key: 'recipient-business',
+        content: (
           <span>
-            <strong>Address:</strong> {formatAddress(order.address)}
+            <strong>Recipient Business:</strong> {recipientBusinessName}
           </span>
           {orderTotalDisplay ? (
             <span>
@@ -813,7 +1045,7 @@ export default function OrderDetails() {
             </span>
           ) : null}
           <span>
-            <strong>Gift Delivery:</strong> {order.giftDelivery ? 'Yes' : 'No'}
+            <strong>Sender Name:</strong> {senderName}
           </span>
           {order.giftDelivery && order.giftDeliveryDetails ? (
             <>
@@ -878,10 +1110,13 @@ export default function OrderDetails() {
               {order.fromWallet ? (
                 <span className="badge wallet">{order.walletMethod}</span>
               ) : null}
-            </span>
-            <span>
-              <strong>Expiration:</strong> {cardDetails.exp_month}/{cardDetails.exp_year}
-            </span>
+            </div>
+            {orderTotalDisplay ? (
+              <div className="order-compact-card">
+                <span className="order-compact-label">Total</span>
+                <span className="order-compact-value">{orderTotalDisplay}</span>
+              </div>
+            ) : null}
           </div>
         ) : null}
 
@@ -932,7 +1167,112 @@ export default function OrderDetails() {
               Cancel Order
             </button>
           </div>
-        </section>
+        ) : (
+          <>
+            <div className={`order-contact ${isAcceptedVariant ? 'accepted' : ''}`}>
+              <div className="order-avatar" aria-hidden="true">
+                {getInitials(contactName)}
+              </div>
+              <div className="order-contact-details">
+                <p className="order-contact-name">{contactName}</p>
+                {formattedPhone ? (
+                  <a href={phoneHref} className="order-contact-phone">
+                    {formattedPhone}
+                  </a>
+                ) : null}
+              </div>
+            </div>
+
+            <section
+              className={`order-section ${isAcceptedVariant ? 'accepted' : ''} ${
+                isProgressVariant ? 'progress' : ''
+              }`}
+              aria-label="Delivery address"
+            >
+              <h2 className="order-section-title">Delivery Address</h2>
+              <address className="order-address">
+                {addressLines.map((line, index) => (
+                  <span key={`${line}-${index}`}>{line}</span>
+                ))}
+              </address>
+              {googleMapsUrl || appleMapsUrl || wazeMapsUrl ? (
+                <div className="order-map-links">
+                  {googleMapsUrl ? (
+                    <a href={googleMapsUrl} target="_blank" rel="noreferrer">
+                      Google Maps
+                    </a>
+                  ) : null}
+                  {appleMapsUrl ? (
+                    <a href={appleMapsUrl} target="_blank" rel="noreferrer">
+                      Apple Maps
+                    </a>
+                  ) : null}
+                  {wazeMapsUrl ? (
+                    <a href={wazeMapsUrl} target="_blank" rel="noreferrer">
+                      Waze
+                    </a>
+                  ) : null}
+                </div>
+              ) : null}
+            </section>
+
+            <section
+              className={`order-section ${isAcceptedVariant ? 'accepted' : ''} ${
+                isProgressVariant ? 'progress' : ''
+              }`}
+              aria-label="Order items"
+            >
+              <h2 className="order-section-title">Order Items</h2>
+              <ul className="order-items-list">
+                {items.length > 0 ? (
+                  items.map((item) => (
+                    <li
+                      key={item.id}
+                      className={`order-item-row ${isAcceptedVariant ? 'accepted' : ''}`}
+                    >
+                      <span className="order-item-name">{item.name}</span>
+                      <span className="order-item-quantity">{item.quantity}x</span>
+                    </li>
+                  ))
+                ) : (
+                  <li className="order-item-row order-item-row-empty">No items listed.</li>
+                )}
+              </ul>
+            </section>
+
+            <footer
+              className={`order-ticket-footer ${isAcceptedVariant ? 'accepted' : ''} ${
+                isProgressVariant ? 'progress' : ''
+              }`}
+            >
+              <div className={`order-total ${isAcceptedVariant ? 'accepted' : ''}`}>
+                <span className="order-total-label">Order Total</span>
+                <span className="order-total-value">{orderTotalDisplay ?? '—'}</span>
+              </div>
+              {primaryButtonLabel ? (
+                <button
+                  type="button"
+                  className={`order-action-button ${
+                    isAcceptedVariant ? 'accepted-primary' : ''
+                  }`}
+                  onClick={handlePrimaryAction}
+                  disabled={actionLoading}
+                >
+                  {primaryButtonLabel}
+                  {!isAcceptedVariant ? (
+                    <span className="order-action-arrow" aria-hidden="true">→</span>
+                  ) : null}
+                </button>
+              ) : null}
+            </footer>
+          </>
+        )}
+      </section>
+
+      {infoMessage ? (
+        <p className={`notice ${infoMessage.type}`} role="status">
+          {infoMessage.text}
+        </p>
       ) : null}
 
       {variant.primaryActionLabel ? (
