@@ -1,5 +1,6 @@
-import { mockMessages, mockOrders } from '../api/mockData'
-import { SocketEvent } from '../types'
+import io from 'socket.io-client'
+
+import urls from '../services/urlServices'
 
 export type SocketHandler<T = unknown> = (payload: T) => void
 
@@ -8,12 +9,19 @@ interface ListenerRecord {
   handler: SocketHandler
 }
 
+const DEFAULT_SOCKET_PATH = '/drivers/orders'
+
+const defaultOptions = {
+  transports: ['websocket'],
+  query: 'b64=1',
+}
+
+type SocketInstance = ReturnType<typeof io>
+
 export class SocketClient {
-  private socket?: WebSocket
+  private socket?: SocketInstance
 
   protected listeners: ListenerRecord[] = []
-
-  private heartbeat?: number
 
   constructor(private readonly url?: string) {}
 
@@ -22,99 +30,58 @@ export class SocketClient {
       return
     }
 
-    try {
-      this.socket = new WebSocket(this.url)
-      this.socket.addEventListener('message', (event) => {
-        const data: SocketEvent = JSON.parse(event.data)
-        this.listeners
-          .filter((listener) => listener.type === data.type)
-          .forEach((listener) => listener.handler(data.payload))
-      })
-      this.socket.addEventListener('open', () => {
-        this.startHeartbeat()
-      })
-      this.socket.addEventListener('close', () => {
-        this.stopHeartbeat()
-        this.socket = undefined
-      })
-    } catch (error) {
-      console.warn('Falling back to mock socket', error)
-    }
+    this.socket = io(this.url, {
+      ...defaultOptions,
+      autoConnect: true,
+      forceNew: true,
+      path: '/socket.io',
+    })
+
+    this.listeners.forEach(({ type, handler }) => {
+      this.socket?.on(type, handler)
+    })
+
+    this.socket.on('disconnect', () => {
+      this.socket?.removeAllListeners()
+      this.socket = undefined
+    })
+
+    this.socket.on('connect_error', (error: Error) => {
+      console.warn('Socket connection error', error)
+    })
   }
 
   disconnect(): void {
-    this.socket?.close()
-    this.stopHeartbeat()
+    this.socket?.removeAllListeners()
+    this.socket?.disconnect()
     this.socket = undefined
   }
 
   emit<T>(type: string, payload: T): void {
-    if (this.socket?.readyState === WebSocket.OPEN) {
-      this.socket.send(JSON.stringify({ type, payload }))
-    }
+    this.socket?.emit(type, payload)
   }
 
   on<T>(type: string, handler: SocketHandler<T>): () => void {
     const listener: ListenerRecord = { type, handler }
     this.listeners.push(listener)
+
+    if (this.socket) {
+      this.socket.on(type, handler as SocketHandler)
+    }
+
     return () => {
       this.listeners = this.listeners.filter((item) => item !== listener)
-    }
-  }
-
-  private startHeartbeat(): void {
-    this.heartbeat = window.setInterval(() => {
-      if (this.socket?.readyState === WebSocket.OPEN) {
-        this.socket.send(JSON.stringify({ type: 'PING', payload: Date.now() }))
+      const activeSocket = this.socket as SocketInstance | undefined
+      if (activeSocket?.off) {
+        activeSocket.off(type, handler as SocketHandler)
+      } else if (activeSocket?.removeListener) {
+        activeSocket.removeListener(type, handler as SocketHandler)
       }
-    }, 30000)
-  }
-
-  private stopHeartbeat(): void {
-    if (this.heartbeat) {
-      window.clearInterval(this.heartbeat)
     }
-  }
-}
-
-export class MockSocket extends SocketClient {
-  private timer?: number
-
-  connect(): void {
-    this.timer = window.setInterval(() => {
-      const newest = mockOrders.find((order) => order.status === 'NEW')
-      if (newest) {
-        this.dispatch('ORDER_UPDATED', newest)
-      }
-      const lastMessage = mockMessages[mockMessages.length - 1]
-      this.dispatch('CHAT_MESSAGE', lastMessage)
-    }, 15000)
-  }
-
-  disconnect(): void {
-    if (this.timer) {
-      window.clearInterval(this.timer)
-    }
-    super.disconnect()
-  }
-
-  emit<T>(type: string, payload: T): void {
-    if (type === 'CHAT_MESSAGE') {
-      this.dispatch(type, payload)
-    }
-  }
-
-  private dispatch<T>(type: string, payload: T): void {
-    this.listeners
-      .filter((listener) => listener.type === type)
-      .forEach((listener) => listener.handler(payload))
   }
 }
 
 export function createSocket(): SocketClient {
-  const wsUrl = import.meta.env.VITE_WS_URL
-  if (wsUrl) {
-    return new SocketClient(wsUrl)
-  }
-  return new MockSocket()
+  const baseUrl = import.meta.env.VITE_SOCKET_URL || `${urls.api}${DEFAULT_SOCKET_PATH}`
+  return new SocketClient(baseUrl)
 }

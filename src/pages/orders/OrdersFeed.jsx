@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { fetchOrders } from '../../services/orderService'
+import { useOrdersSocket } from '../../ws/useOrdersSocket'
 import './Orders.css'
 
 const SECTION_CONFIG = [
@@ -77,8 +78,17 @@ function resolveStatusKey(status) {
   return STATUS_TO_SECTION[status.toLowerCase()] ?? SECTION_CONFIG[0].key
 }
 
+function sortOrdersByRecency(list) {
+  return [...list].sort((a, b) => {
+    const aTime = new Date(a?.assignedAt || a?.updatedAt || a?.createdAt || 0).getTime()
+    const bTime = new Date(b?.assignedAt || b?.updatedAt || b?.createdAt || 0).getTime()
+
+    return bTime - aTime
+  })
+}
+
 export default function OrdersFeed() {
-  const { token } = useAuth()
+  const { token, user } = useAuth()
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -86,6 +96,7 @@ export default function OrdersFeed() {
   const [view, setView] = useState(SECTION_CONFIG[0].key)
 
   const isRefreshing = loading && orders.length > 0
+  const driverChannel = user?._id || user?.id || null
 
   const loadOrders = useCallback(async () => {
     if (!token) {
@@ -97,7 +108,8 @@ export default function OrdersFeed() {
 
     try {
       const data = await fetchOrders(token)
-      setOrders(Array.isArray(data) ? data : [])
+      const list = Array.isArray(data) ? data : []
+      setOrders(sortOrdersByRecency(list))
       setLastUpdated(new Date())
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unable to load orders.'
@@ -110,6 +122,52 @@ export default function OrdersFeed() {
   useEffect(() => {
     loadOrders()
   }, [loadOrders])
+
+  const handleSocketEvent = useCallback(
+    (eventName, payload) => {
+      if (!payload) {
+        loadOrders()
+        return
+      }
+
+      if (Array.isArray(payload)) {
+        setOrders(sortOrdersByRecency(payload))
+        setLastUpdated(new Date())
+        return
+      }
+
+      const orderId = payload?._id || payload?.id
+      if (!orderId) {
+        loadOrders()
+        return
+      }
+
+      setOrders((current) => {
+        const next = Array.isArray(current) ? [...current] : []
+        const existingIndex = next.findIndex((item) => (item?._id || item?.id) === orderId)
+        if (existingIndex >= 0) {
+          next[existingIndex] = { ...next[existingIndex], ...payload }
+          return sortOrdersByRecency(next)
+        }
+        return sortOrdersByRecency([payload, ...next])
+      })
+      setLastUpdated(new Date())
+      setLoading(false)
+
+      const shouldRefetch = ['ORDERS_UPDATED', 'ORDER_DELETED'].includes(eventName)
+
+      if (shouldRefetch) {
+        loadOrders()
+      }
+    },
+    [loadOrders],
+  )
+
+  useOrdersSocket({
+    driverChannel,
+    enabled: Boolean(token),
+    onEvent: handleSocketEvent,
+  })
 
   const viewConfig = useMemo(
     () => SECTION_CONFIG.find((entry) => entry.key === view) ?? SECTION_CONFIG[0],
