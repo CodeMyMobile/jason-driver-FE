@@ -124,6 +124,9 @@ export default function OrderSignature() {
       const { x, y } = getCoordinates(event)
       ctx.beginPath()
       ctx.moveTo(x, y)
+      if (typeof event.pointerId === 'number' && typeof canvas.setPointerCapture === 'function') {
+        canvas.setPointerCapture(event.pointerId)
+      }
       setIsDrawing(true)
     },
     [getCoordinates],
@@ -164,6 +167,9 @@ export default function OrderSignature() {
 
       const ctx = canvas.getContext('2d')
       ctx.closePath()
+      if (typeof event.pointerId === 'number' && typeof canvas.releasePointerCapture === 'function') {
+        canvas.releasePointerCapture(event.pointerId)
+      }
       setIsDrawing(false)
     },
     [isDrawing],
