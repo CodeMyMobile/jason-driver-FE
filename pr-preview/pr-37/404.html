@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Jason Driver</title>
+    <script>
+      (function () {
+        var basePath = '/jason-driver-FE'
+        var normalisedBase = basePath.endsWith('/') ? basePath.slice(0, -1) : basePath
+        var path = window.location.pathname || '/'
+        var search = window.location.search || ''
+        var hash = window.location.hash || ''
+
+        var route = path.startsWith(normalisedBase)
+          ? path.slice(normalisedBase.length)
+          : path
+
+        if (!route.startsWith('/')) {
+          route = '/' + route
+        }
+
+        var redirectTarget = route + search + hash
+
+        try {
+          window.sessionStorage.setItem('jdl:redirect', redirectTarget)
+        } catch (error) {
+          console.warn('Unable to persist redirect path', error)
+        }
+
+        window.location.replace(normalisedBase + '/')
+      })()
+    </script>
+  </head>
+  <body></body>
+</html>
