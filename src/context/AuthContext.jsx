@@ -19,14 +19,22 @@ export function AuthProvider({ children }) {
     const storedToken = localStorage.getItem(TOKEN_STORAGE_KEY)
 
     if (storedUser && storedToken) {
-      try {
-        setUser(JSON.parse(storedUser))
-        setToken(storedToken)
-      } catch (err) {
-        console.error('Failed to parse stored user', err)
+      if (storedUser === 'undefined' || storedUser === 'null') {
         localStorage.removeItem(USER_STORAGE_KEY)
         localStorage.removeItem(TOKEN_STORAGE_KEY)
+      } else {
+        try {
+          const parsedUser = JSON.parse(storedUser)
+          setUser(parsedUser)
+          setToken(storedToken)
+        } catch (err) {
+          console.error('Failed to parse stored user', err)
+          localStorage.removeItem(USER_STORAGE_KEY)
+          localStorage.removeItem(TOKEN_STORAGE_KEY)
+        }
       }
+    } else if (!storedUser && storedToken) {
+      localStorage.removeItem(TOKEN_STORAGE_KEY)
     }
 
     setInitialising(false)
@@ -38,13 +46,15 @@ export function AuthProvider({ children }) {
 
     try {
       const data = await logIn(email, password)
-      if (!data?.user || !data?.token) {
+      const authenticatedUser = data?.user ?? data?.driver
+
+      if (!authenticatedUser || !data?.token) {
         throw new Error('Invalid login response from server.')
       }
 
-      setUser(data.user)
+      setUser(authenticatedUser)
       setToken(data.token)
-      localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(data.user))
+      localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(authenticatedUser))
       localStorage.setItem(TOKEN_STORAGE_KEY, data.token)
 
       return data
